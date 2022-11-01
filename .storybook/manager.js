@@ -5,7 +5,7 @@ addons.setConfig({
   panelPosition: "right",
   theme: {
     ...themes.normal,
-    brandTitle: "@decathlon/react-table",
+    brandTitle: "@pricemoov/react-table",
     brandUrl: "#",
 
     // UI

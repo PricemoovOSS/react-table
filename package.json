@@ -1,17 +1,17 @@
 {
-  "name": "@decathlon/react-table",
+  "name": "@pricemoov/react-table",
   "version": "3.0.0",
   "description": "React components for efficiently rendering large tabular data",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Decathlon/react-table"
+    "url": "https://github.com/PricemoovOSS/react-table"
   },
   "bugs": {
-    "url": "https://github.com/Decathlon/react-table/issues"
+    "url": "https://github.com/PricemoovOSS/react-table/issues"
   },
-  "homepage": "https://github.com/Decathlon/react-table/blob/master/README.md",
+  "homepage": "https://github.com/PricemoovOSS/react-table/blob/master/README.md",
   "files": [
     "dist"
   ],
@@ -127,7 +127,7 @@
     "customization",
     "performance"
   ],
-  "author": "Decathlon",
+  "author": "PricemoovOSS",
   "license": "Apache-2.0",
   "husky": {
     "hooks": {
