@@ -1,4 +1,4 @@
-## Contributing to @pricemoov/react-table
+## Contributing to @pricemoov-oss/react-table
 
 First off, thanks for taking the time to contribute!
 

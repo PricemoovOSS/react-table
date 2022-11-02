@@ -1,5 +1,5 @@
 
-# @pricemoov/react-table
+# @pricemoov-oss/react-table
 
 React components for efficiently rendering large tabular data
 
@@ -17,15 +17,15 @@ React components for efficiently rendering large tabular data
 ### Installing
 
 ```
-npm install -S @pricemoov/react-table
+npm install -S @pricemoov-oss/react-table
 ```
 
 ### Usage
 
 
 ```js
-import { Table } from "@pricemoov/react-table";
-import "@pricemoov/react-table/dist/style/index.css";
+import { Table } from "@pricemoov-oss/react-table";
+import "@pricemoov-oss/react-table/dist/style/index.css";
 
  const rows = [
     {

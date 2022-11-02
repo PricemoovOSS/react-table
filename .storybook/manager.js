@@ -5,7 +5,7 @@ addons.setConfig({
   panelPosition: "right",
   theme: {
     ...themes.normal,
-    brandTitle: "@pricemoov/react-table",
+    brandTitle: "@pricemoov-oss/react-table",
     brandUrl: "#",
 
     // UI

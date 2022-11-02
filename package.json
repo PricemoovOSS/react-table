@@ -1,5 +1,5 @@
 {
-  "name": "@pricemoov/react-table",
+  "name": "@pricemoov-oss/react-table",
   "version": "3.0.0",
   "description": "React components for efficiently rendering large tabular data",
   "main": "dist/index.js",
