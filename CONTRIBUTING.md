@@ -1,4 +1,4 @@
-## Contributing to @decathlon/react-table
+## Contributing to @pricemoov/react-table
 
 First off, thanks for taking the time to contribute!
 

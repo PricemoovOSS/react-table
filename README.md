@@ -1,5 +1,5 @@
 
-# @decathlon/react-table
+# @pricemoov/react-table
 
 React components for efficiently rendering large tabular data
 
@@ -17,15 +17,15 @@ React components for efficiently rendering large tabular data
 ### Installing
 
 ```
-npm install -S @decathlon/react-table
+npm install -S @pricemoov/react-table
 ```
 
 ### Usage
 
 
 ```js
-import { Table } from "@decathlon/react-table";
-import "@decathlon/react-table/dist/style/index.css";
+import { Table } from "@pricemoov/react-table";
+import "@pricemoov/react-table/dist/style/index.css";
 
  const rows = [
     {
@@ -102,8 +102,8 @@ up the merging process.
 * **Hyacinthe Knobloch** [hyacintheknobloch](https://github.com/hyacintheknobloch)
 * **Benjamin Wintrebert** [Ben-Wintrebert](https://github.com/Ben-Wintrebert)
 
-See also the list of [contributors](https://github.com/Decathlon/react-table/graphs/contributors) who participated in this project.
+See also the list of [contributors](https://github.com/PricemoovOSS/react-table/graphs/contributors) who participated in this project.
 
 ## License
 
-This project is licensed under the Apache-2.0 License - see the [LICENSE.md](https://github.com/Decathlon/react-table/blob/master/LICENSE) file for details
+This project is licensed under the Apache-2.0 License - see the [LICENSE.md](https://github.com/PricemoovOSS/react-table/blob/master/LICENSE) file for details
