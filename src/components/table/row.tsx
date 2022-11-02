@@ -428,7 +428,6 @@ export default class Row extends React.Component<IRowProps, IState> {
               style: {
                 ...globalColumnProps.style,
                 ...cellColumn.style,
-                //@ts-ignore
                 right: absolutePosition,
               },
             };
