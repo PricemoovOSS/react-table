@@ -791,7 +791,10 @@ export const getVirtualizerCache = ({
     itemsCount !== undefined ? itemsCount : Math.floor(scrollableItemsSize / minItemSize + fixedCustomSizesItems.count);
 
   /** Items size for the items without manual specified size */
-  cache.itemSize = cache.itemsCount > 0 ? Math.ceil(scrollableItemsSize / (cache.itemsCount - fixedCustomSizesItems.count)) : 0;
+  cache.itemSize =
+    cache.itemsCount > fixedCustomSizesItems.count
+      ? Math.ceil(scrollableItemsSize / (cache.itemsCount - fixedCustomSizesItems.count))
+      : 0;
 
   /** The size of the table if all items are displayed */
   cache.virtualSize =
