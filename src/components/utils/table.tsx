@@ -183,7 +183,7 @@ export const addSequentialIndexesToFixedIndexList = ({
   customSizes = {},
 }: AddSequentialIndexesToFixedIndexList): number[] => {
   if (!maxSize) {
-    return [];
+    return [...fixedIndexes];
   }
   const localIgnoredIndexes = { ...ignoredIndexes };
   let currentSize = 0;
