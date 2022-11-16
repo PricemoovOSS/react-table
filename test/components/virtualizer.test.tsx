@@ -87,7 +87,6 @@ describe("Virtualizer", () => {
           "30": 0,
         },
         elevations: {
-          "3": "end",
           "30": "absolute",
         },
       },
@@ -131,7 +130,6 @@ describe("Virtualizer", () => {
         },
         elevations: {
           "14": "absolute",
-          "5": "end",
         },
       },
       elevatedRowIndexes: {
