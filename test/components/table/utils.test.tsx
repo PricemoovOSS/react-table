@@ -117,6 +117,31 @@ describe("addSequentialIndexesToFixedIndexList method", () => {
 describe("getElevatedIndexes method", () => {
   const itemIndexes = [0, 1, 2, 3, 4, 5, 6];
 
+  test("should return a list with fixed indexes (only last item is absolute)", () => {
+    const newList = Utils.getElevatedIndexes([...itemIndexes, 7, 8, 9], { 0: true, 6: true, 7: true, 9: true }, {}, 30);
+    const expectedIntersection = {
+      absoluteEndPositions: { "9": 0 },
+      elevations: {
+        "0": "start",
+        "9": "absolute",
+      },
+    };
+
+    expect(newList).toEqual(expectedIntersection);
+  });
+
+  test("should return a list with fixed indexes (without absolute items)", () => {
+    const newList = Utils.getElevatedIndexes(itemIndexes, { 0: true, 1: true, 2: true, 5: true }, {}, 30);
+    const expectedIntersection = {
+      absoluteEndPositions: {},
+      elevations: {
+        "2": "start",
+      },
+    };
+
+    expect(newList).toEqual(expectedIntersection);
+  });
+
   test("should return a list with fixed indexes where the item in itemIndexesList isn't in the fixed indexes list", () => {
     const newList = Utils.getElevatedIndexes(itemIndexes, { 0: true, 1: true, 2: true, 5: true, 6: true }, {}, 30);
     const expectedIntersection = {
@@ -143,7 +168,6 @@ describe("getElevatedIndexes method", () => {
       },
       elevations: {
         "2": "start",
-        "4": "end",
         "5": "absolute",
         "6": "absolute",
       },

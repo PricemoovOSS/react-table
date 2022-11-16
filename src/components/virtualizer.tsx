@@ -330,28 +330,48 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
   };
 
   private getVisibleRowsState = (scrollTop = 0): IRowsState | null => {
-    const { visibleRowIndexes } = this.state;
+    const { visibleRowIndexes, elevatedRowIndexes } = this.state;
     const newVisibleRowIndexes = this.getVisibleRowIndexes(scrollTop);
-    let rowState = null;
+    let rowState: IRowsState | null = null;
     if (!isEqual(newVisibleRowIndexes, visibleRowIndexes)) {
       rowState = {
         visibleRowIndexes: newVisibleRowIndexes,
-        elevatedRowIndexes: this.getElevatedRowIndexes(newVisibleRowIndexes),
+        elevatedRowIndexes,
       };
     }
+
+    const newElevatedRowIndexes = this.getElevatedRowIndexes(newVisibleRowIndexes);
+    if (!isEqual(newElevatedRowIndexes, elevatedRowIndexes)) {
+      rowState = {
+        visibleRowIndexes: visibleRowIndexes,
+        ...rowState,
+        elevatedRowIndexes: newElevatedRowIndexes,
+      };
+    }
+
     return rowState;
   };
 
   private getVisibleColumnsState = (scrollLeft = 0): IColumnState | null => {
-    const { visibleColumnIndexes } = this.state;
+    const { visibleColumnIndexes, elevatedColumnIndexes } = this.state;
     const newVisibleColumnIndexes = this.getVisibleColumnIndexes(scrollLeft);
-    let columnState = null;
+    let columnState: IColumnState | null = null;
     if (!isEqual(newVisibleColumnIndexes, visibleColumnIndexes)) {
       columnState = {
         visibleColumnIndexes: newVisibleColumnIndexes,
-        elevatedColumnIndexes: this.getElevatedColumnIndexes(newVisibleColumnIndexes),
+        elevatedColumnIndexes,
       };
     }
+
+    const newElevatedColumnIndexes = this.getElevatedColumnIndexes(newVisibleColumnIndexes);
+    if (!isEqual(newElevatedColumnIndexes, elevatedColumnIndexes)) {
+      columnState = {
+        visibleColumnIndexes: visibleColumnIndexes,
+        ...columnState,
+        elevatedColumnIndexes: newElevatedColumnIndexes,
+      };
+    }
+
     return columnState;
   };
 

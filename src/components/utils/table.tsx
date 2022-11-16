@@ -235,31 +235,50 @@ export const getElevatedIndexes = (
   defaultSize: number,
   usePrevIndexForLastElevation?: boolean
 ): IElevateds => {
-  const isLimit = (item1: number, item2: number) => {
-    return item1 !== undefined && !ignoredIndexes[item1] && (item2 === undefined || ignoredIndexes[item2]);
-  };
+  const hasOnlyIgnoredItems = visibleItemIndexes.every((itemIndex) => ignoredIndexes[itemIndex] != null);
+
+  if (hasOnlyIgnoredItems) {
+    return { elevations: {}, absoluteEndPositions: {} };
+  }
+
+  const reversedVisibleItemIndexes = [...visibleItemIndexes].reverse();
   const absoluteFixed: number[] = [];
-  const elevations = visibleItemIndexes.reduce((result, itemIndex, index) => {
+  const elevations: Record<number, ElevationType> = {};
+
+  // set absolute elevations
+  for (let index = 0; index < reversedVisibleItemIndexes.length; index += 1) {
+    const itemIndex = reversedVisibleItemIndexes[index];
+    const isFixed = ignoredIndexes[itemIndex];
+    if (isFixed) {
+      const prevItem = reversedVisibleItemIndexes[index - 1];
+      if (prevItem == null || ignoredIndexes[prevItem]) {
+        absoluteFixed.push(itemIndex);
+        elevations[itemIndex] = ElevationType.absolute;
+      } else {
+        break;
+      }
+    }
+  }
+
+  // set first sticky elevation
+  for (let index = 0; index < visibleItemIndexes.length; index += 1) {
+    const itemIndex = visibleItemIndexes[index];
     const isFixed = ignoredIndexes[itemIndex];
     if (isFixed) {
       const nextItem = visibleItemIndexes[index + 1];
       const prevItem = visibleItemIndexes[index - 1];
-      const isFixedStart = isLimit(nextItem, prevItem);
-      const isEnd = isLimit(prevItem, nextItem);
-      const isFixedEnd = !isFixedStart && isEnd;
-      const isAbsoluteEnd = isEnd || result[prevItem] === ElevationType.absolute;
+      const isFixedStart =
+        nextItem != null && ignoredIndexes[nextItem] == null && (prevItem == null || ignoredIndexes[prevItem] != null);
 
-      if (isFixedStart || isFixedEnd) {
+      if (isFixedStart) {
         const elevationIndex = usePrevIndexForLastElevation && !isFixedStart ? prevItem : itemIndex;
-        result[elevationIndex] = isFixedStart ? ElevationType.start : ElevationType.end;
-      }
-      if (isAbsoluteEnd) {
-        result[itemIndex] = ElevationType.absolute;
-        absoluteFixed.unshift(itemIndex);
+        if (!elevations[elevationIndex]) {
+          elevations[elevationIndex] = isFixedStart ? ElevationType.start : ElevationType.end;
+        }
+        break;
       }
     }
-    return result;
-  }, {});
+  }
 
   const absoluteEndPositions: Record<number, number> = {};
   if (absoluteFixed.length) {
@@ -271,6 +290,7 @@ export const getElevatedIndexes = (
       absoluteEndPositions[itemIndex] = itemSize + absoluteEndPositions[prevItemIndex];
     }
   }
+
   return {
     elevations,
     absoluteEndPositions,
