@@ -245,7 +245,7 @@ const TableInteractionsManager = ({ children, initialConfig, onStateUpdate, togg
     () =>
       fixedColumnsIds.reduce<number[]>((result, columnId) => {
         const columnIndex = table.current?.getColumnIndex(columnId);
-        if (columnIndex && columnIndex >= 0) {
+        if (columnIndex != null && columnIndex >= 0) {
           result.push(columnIndex);
         }
         return result;
