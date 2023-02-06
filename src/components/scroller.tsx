@@ -50,6 +50,8 @@ export interface IScrollerProps {
   width: number;
   /**  The height of the visible window */
   height: number;
+  /** The custom scrollbar size */
+  scrollbarSize?: number;
   /**  The horizontal part width of the scroll bar */
   horizontalPartWidth?: number;
   /** Ignored parts indexes */
@@ -62,6 +64,10 @@ export interface IScrollerProps {
 const defaultScroll = { scrollLeft: 0, scrollTop: 0 };
 
 class Scroller extends React.Component<IScrollerProps> {
+  public static defaultProps = {
+    scrollbarSize: SCROLLBAR_SIZE,
+  };
+
   private scrollerContainer: React.RefObject<HTMLDivElement> = React.createRef();
 
   private scrollOrigin: ScrollOrigin = ScrollOrigin.native;
@@ -121,11 +127,11 @@ class Scroller extends React.Component<IScrollerProps> {
   };
 
   private initializeMaxScrollValues = () => {
-    const { virtualHeight, virtualWidth, width, height } = this.props;
+    const { virtualHeight, virtualWidth, width, height, scrollbarSize = SCROLLBAR_SIZE } = this.props;
     const hasHorizontalScrollBar = virtualWidth > width;
     const hasVerticalScrollBar = virtualHeight > height;
-    const verticalScrollBar = hasVerticalScrollBar ? SCROLLBAR_SIZE : 0;
-    const horizontalScrollBar = hasHorizontalScrollBar ? SCROLLBAR_SIZE : 0;
+    const verticalScrollBar = hasVerticalScrollBar ? scrollbarSize : 0;
+    const horizontalScrollBar = hasHorizontalScrollBar ? scrollbarSize : 0;
     // We calculate the maximum value of the scroll
     this.scrollTopMax = virtualHeight - height - 5 + horizontalScrollBar;
     // We calculate the maximum value of the scroll left
@@ -220,7 +226,7 @@ class Scroller extends React.Component<IScrollerProps> {
   };
 
   public render() {
-    const { virtualWidth, virtualHeight, width, height, children } = this.props;
+    const { virtualWidth, virtualHeight, width, height, children, scrollbarSize = SCROLLBAR_SIZE } = this.props;
     const newChildren = React.Children.map(children, (child) =>
       React.cloneElement(child as React.ReactElement<any>, {
         scrollToLeft: this.scrollToLeft,
@@ -229,12 +235,12 @@ class Scroller extends React.Component<IScrollerProps> {
     );
     const hasHorizontalScrollBar = virtualWidth > width;
     const hasVerticalScrollBar = virtualHeight > height;
-    // We still need a minimum dimension equal to SCROLLBAR_SIZE
-    const minHeight = height || SCROLLBAR_SIZE;
-    const minWidth = width || SCROLLBAR_SIZE;
+    // We still need a minimum dimension equal to scrollbarSize
+    const minHeight = height || scrollbarSize;
+    const minWidth = width || scrollbarSize;
 
-    const verticalScrollBar = hasVerticalScrollBar ? SCROLLBAR_SIZE : 0;
-    const horizontalScrollBar = hasHorizontalScrollBar ? SCROLLBAR_SIZE : 0;
+    const verticalScrollBar = hasVerticalScrollBar ? scrollbarSize : 0;
+    const horizontalScrollBar = hasHorizontalScrollBar ? scrollbarSize : 0;
 
     return (
       <div
