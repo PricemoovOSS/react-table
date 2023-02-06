@@ -65,6 +65,8 @@ export interface IVirtualizerOptionalProps {
   minColumnWidth?: number;
   /** Minimal height of a row */
   minRowHeight?: number;
+  /** The custom scrollbar size */
+  scrollbarSize?: number;
   /** Sum of the height of fixed rows with a pre-defined height */
   customCellsHeight: CustomSizesElements;
   /** Sum of the width of fixed columns with a pre-defined width */
@@ -250,6 +252,7 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
       hiddenColumns,
       fixedRows,
       hiddenRows,
+      scrollbarSize = SCROLLBAR_SIZE,
     } = this.props;
     const minCellHeight = minRowHeight || DEFAULT_ROW_HEIGHT;
     const minCellWidth = minColumnWidth || MIN_COLUMN_WIDTH;
@@ -282,11 +285,11 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
     setverticalData(horizontalPadding);
 
     const horizontalScrollBarSize =
-      this.verticalData.virtualSize > (this.verticalData.scrollableItemsSize || 0) ? SCROLLBAR_SIZE : 0;
+      this.verticalData.virtualSize > (this.verticalData.scrollableItemsSize || 0) ? scrollbarSize : 0;
     sethorizontalData(verticalPadding + horizontalScrollBarSize);
 
     const verticalScrollBarSize =
-      this.horizontalData.virtualSize > (this.horizontalData.scrollableItemsSize || 0) ? SCROLLBAR_SIZE : 0;
+      this.horizontalData.virtualSize > (this.horizontalData.scrollableItemsSize || 0) ? scrollbarSize : 0;
     setverticalData(verticalScrollBarSize + horizontalPadding);
 
     // Returns the distance (in pixels) between the different items
@@ -436,7 +439,7 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
   };
 
   public render() {
-    const { children, columnsLength, rowsLength, hiddenColumns, width, height } = this.props;
+    const { children, columnsLength, rowsLength, hiddenColumns, width, height, scrollbarSize } = this.props;
     const { elevatedColumnIndexes, elevatedRowIndexes, visibleColumnIndexes, visibleRowIndexes } = this.state;
 
     return (
@@ -449,6 +452,7 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
         onScroll={this.onScroll}
         horizontalPartWidth={this.horizontalData.itemSize}
         ignoredHorizontalParts={hiddenColumns}
+        scrollbarSize={scrollbarSize}
       >
         {children({
           visibleColumnIndexes: getVisibleIndexesInsideDatalength(columnsLength, visibleColumnIndexes),
