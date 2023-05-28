@@ -5,6 +5,8 @@ import Row, { IRow, IRowOptions } from "./row";
 import { IIndexesMap, filterRowsByIndexes, getRowTreeLength, filterIndexes, IElevateds } from "../utils/table";
 import { ISelection } from "../table-selection/selection-handler";
 import { Nullable } from "../typing";
+import { GroupBranche, getColumnBranches, getMergedBranches } from "../utils/group";
+import GroupRows, { GroupRowsProps } from "./group-rows";
 
 export enum Type {
   error = "error",
@@ -35,6 +37,8 @@ export interface IColumn extends IColumnOptions {
   disableLevelPadding?: boolean;
   /** loading state of the column */
   loading?: boolean;
+  /** The group of the column */
+  groupId?: string;
 }
 
 export interface IColumns {
@@ -63,6 +67,8 @@ export interface IElementaryTable<IDataCoordinates = any> {
   globalColumnProps?: IColumnOptions;
   /** If true, we are using an additional column at the beginning of the rows to open/close the first openable child. */
   isSpan?: boolean;
+  /** Options to customize any group rows, such as size */
+  groupsProps?: GroupRowsProps;
 }
 
 export interface IElementaryTableProps<IDataCoordinates = any> extends IElementaryTable<IDataCoordinates>, ISelection {
@@ -72,6 +78,8 @@ export interface IElementaryTableProps<IDataCoordinates = any> extends IElementa
   indexesMapping: IIndexesMap;
   /** The list of the opend rows and sub-rows */
   openedTrees: ITrees;
+  /** To specify column groups tree structure  */
+  groupBranches: Nullable<Record<string, GroupBranche>>;
   /** Called when a cell of the row is opened */
   onRowOpen?: (openedTree: ITree) => void;
   /** Called when a cell of the row is closed */
@@ -85,6 +93,7 @@ class ElementaryTable extends React.Component<IElementaryTableProps> {
     openedTrees: {},
     selectedCells: {},
     rowsProps: {},
+    groupBranches: null,
   };
 
   /** An utility of the table that return the length of the visible sub-rows
@@ -206,11 +215,22 @@ class ElementaryTable extends React.Component<IElementaryTableProps> {
   };
 
   public render() {
+    const { columns, visibleColumnIndexes, groupBranches, groupsProps } = this.props;
+
     const { header, body } = this.renderTableParts();
+    const groups = groupBranches ? getMergedBranches(getColumnBranches(groupBranches, columns, visibleColumnIndexes)) : [];
+    const hasHeader = header.length > 0 || groups.length > 0;
+    const hasBody = body.length > 0;
+
     return (
       <table className="table-root">
-        {header.length > 0 ? <thead>{header}</thead> : null}
-        {body.length > 0 ? <tbody>{body}</tbody> : null}
+        {hasHeader ? (
+          <thead>
+            {groups.length > 0 ? <GroupRows {...groupsProps} groups={groups} /> : null}
+            {header.length > 0 ? header : null}
+          </thead>
+        ) : null}
+        {hasBody ? <tbody>{body}</tbody> : null}
       </table>
     );
   }

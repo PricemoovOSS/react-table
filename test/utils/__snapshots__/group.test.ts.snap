@@ -1,0 +1,475 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Grou utils should return column branches (only default branche) 1`] = `
+[
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+]
+`;
+
+exports[`Grou utils should return column branches (only default branche) 2`] = `
+[
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+]
+`;
+
+exports[`Grou utils should return not empty branches list 1`] = `
+{
+  "default-group-id": {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  "subgroup-1": {
+    "id": "group1",
+    "label": "Group 1",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-1-root-1",
+        "label": "Sub-Group 1.1",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-1",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  "subgroup-2": {
+    "id": "group2",
+    "label": "Group 2",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-2-root-1",
+        "label": "Sub-Group 2.1",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-2",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  "subgroup-4": {
+    "id": "group2",
+    "label": "Group 2",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-3",
+        "label": "Sub-Group 2.2",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-4",
+            "label": "Sub-Group 2.2.1",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  "subgroup-5": {
+    "id": "group2",
+    "label": "Group 2",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-3",
+        "label": "Sub-Group 2.2",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-5",
+            "label": "Sub-Group 2.2.2",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+}
+`;
+
+exports[`Grou utils should return visible column branches 1`] = `
+[
+  {
+    "id": "group1",
+    "label": "Group 1",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-1-root-1",
+        "label": "Sub-Group 1.1",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-1",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "group1",
+    "label": "Group 1",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-1-root-1",
+        "label": "Sub-Group 1.1",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-1",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "group2",
+    "label": "Group 2",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-2-root-1",
+        "label": "Sub-Group 2.1",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-2",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "group2",
+    "label": "Group 2",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-3",
+        "label": "Sub-Group 2.2",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-5",
+            "label": "Sub-Group 2.2.2",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "group2",
+    "label": "Group 2",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "subgroup-3",
+        "label": "Sub-Group 2.2",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-5",
+            "label": "Sub-Group 2.2.2",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+]
+`;
+
+exports[`Grou utils should return visible merged column branches 1`] = `
+[
+  {
+    "id": "group1",
+    "label": "Group 1",
+    "size": 2,
+    "subGroups": [
+      {
+        "id": "subgroup-1-root-1",
+        "label": "Sub-Group 1.1",
+        "size": 2,
+        "subGroups": [
+          {
+            "id": "subgroup-1",
+            "label": "",
+            "size": 2,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "group2",
+    "label": "Group 2",
+    "size": 3,
+    "subGroups": [
+      {
+        "id": "subgroup-2-root-1",
+        "label": "Sub-Group 2.1",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "subgroup-2",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+      {
+        "id": "subgroup-3",
+        "label": "Sub-Group 2.2",
+        "size": 2,
+        "subGroups": [
+          {
+            "id": "subgroup-5",
+            "label": "Sub-Group 2.2.2",
+            "size": 2,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    "id": "default-group-id-root-0",
+    "label": "",
+    "size": 1,
+    "subGroups": [
+      {
+        "id": "default-group-id-root-1",
+        "label": "",
+        "size": 1,
+        "subGroups": [
+          {
+            "id": "default-group-id",
+            "label": "",
+            "size": 1,
+          },
+        ],
+      },
+    ],
+  },
+]
+`;

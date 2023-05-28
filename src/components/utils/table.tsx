@@ -148,7 +148,7 @@ export const computeCellStyle = (column?: IColumn, options?: IRowOptions): React
   return cellStyle;
 };
 
-export const computeRowStyle = (options: Nullable<IRowOptions>, style: React.CSSProperties = {}): React.CSSProperties => {
+export const computeRowStyle = (options?: Nullable<IRowOptions>, style: React.CSSProperties = {}): React.CSSProperties => {
   const rowStyle: React.CSSProperties = { ...style };
   rowStyle.height = options && options.size ? options.size : DEFAULT_ROW_HEIGHT;
   return rowStyle;

@@ -22,9 +22,10 @@ import {
   relativeToAbsoluteObject,
 } from "../utils/table";
 import SelectionHandler, { ISelection, ISelectionHandlerOptionalProps } from "../table-selection/selection-handler";
-import { ROW_SPAN_WIDTH } from "../constants";
+import { DEFAULT_ROW_HEIGHT, ROW_SPAN_WIDTH } from "../constants";
 import { ICell, ICellCoordinates } from "./cell";
 import shallowEqual from "../utils/shallowEqual";
+import { Group, GroupBranche, getGroupBranches } from "../utils/group";
 
 interface IVirtualizerProps extends Partial<IVirtualizerOptionalProps> {
   /**  The width of the visible window. To specify if not responsive */
@@ -40,6 +41,8 @@ interface IVirtualizerProps extends Partial<IVirtualizerOptionalProps> {
 export interface ITableProps<IDataCoordinates = any> extends IElementaryTable<IDataCoordinates> {
   responsiveContainerProps: IResponsiveContainerOptionalProps;
   virtualizerProps: IVirtualizerProps;
+  /** To specify column groups tree structure  */
+  groups?: Group[];
   /** A list of branches to initialize opened rows and sub rows */
   initialOpenedTrees: ITrees;
   selectionProps?: ISelectionHandlerOptionalProps;
@@ -93,6 +96,10 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
     customSizes: {},
   };
 
+  private groupBranches: Record<string, GroupBranche> | undefined;
+
+  private groupsDepth = 0;
+
   private virtualizer: React.RefObject<Virtualizer> = React.createRef<Virtualizer>();
 
   private columnsLength = 0;
@@ -105,6 +112,7 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
       columns,
       rowsProps,
       isVirtualized,
+      groups,
       virtualizerProps: { fixedRows, fixedColumns, hiddenRows, hiddenColumns },
     } = this.props;
     this.columnsLength = getColumnsLength(rows);
@@ -120,6 +128,7 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
       this.customCellsHeight = getItemsCustomSizes(rowsProps, fixedRows, hiddenRows);
       this.customCellsWidth = getItemsCustomSizes(columns, fixedColumns, hiddenColumns);
     }
+    this.initGroupsProps(groups);
   }
 
   public shouldComponentUpdate(nextProps: ITableProps<IDataCoordinates>, nextState: IState) {
@@ -141,6 +150,7 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
       rowsProps,
       isVirtualized,
       virtualizerProps,
+      groups,
       virtualizerProps: { fixedColumns, hiddenColumns, fixedRows, hiddenRows },
     } = this.props;
     const { openedTrees, indexesMapping } = this.state;
@@ -152,6 +162,9 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
       if (rowsProps !== prevProps.rowsProps) {
         this.customCellsHeight = getItemsCustomSizes(rowsProps, fixedRows, hiddenRows);
       }
+    }
+    if (prevProps.groups !== groups) {
+      this.initGroupsProps(groups);
     }
 
     if (prevProps.rows !== rows) {
@@ -169,6 +182,12 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
       });
     }
   }
+
+  private initGroupsProps = (groups?: Group[]) => {
+    const { depth, groupBranches } = getGroupBranches(groups);
+    this.groupBranches = groupBranches;
+    this.groupsDepth = depth;
+  };
 
   private getFixedRowsIndexes = (openedTrees: ITrees, relativeIndexesMapping: IRelativeIndexesMap) => {
     const {
@@ -338,6 +357,7 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
       <ElementaryTable
         {...tableProps}
         {...selection}
+        groupBranches={this.groupBranches}
         columns={columns || tableProps.columns}
         visibleColumnIndexes={visibleColumnIndexes || tableProps.visibleColumnIndexes}
         visibleRowIndexes={visibleRowIndexes || tableProps.visibleRowIndexes}
@@ -363,15 +383,19 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
     const {
       isSpan,
       virtualizerProps,
-      virtualizerProps: { hiddenRows },
+      virtualizerProps: { hiddenRows, horizontalPadding = 0 },
       columns,
+      groupsProps,
     } = this.props;
     const { rowsLength, indexesMapping, fixedRowsIndexes } = this.state;
-
+    // Include groups in the horizontal Padding
+    const groupRowSize = groupsProps?.rowsOptions?.size || DEFAULT_ROW_HEIGHT;
+    const tableHorizontalPadding = horizontalPadding + this.groupsDepth * groupRowSize;
     return (
       <Virtualizer
         ref={this.virtualizer}
         {...virtualizerProps}
+        horizontalPadding={tableHorizontalPadding}
         fixedRows={fixedRowsIndexes}
         columnsLength={this.columnsLength}
         hiddenRows={hiddenRows && relativeToAbsoluteIndexes(hiddenRows, indexesMapping.relative)}

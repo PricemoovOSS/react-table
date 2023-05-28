@@ -9,11 +9,20 @@ import Row, { IRow } from "../../../src/components/table/row";
 import { withThemeProvider } from "../../utils/decorators";
 import { generateTable, generateTableWithCustomColspan, generateRow } from "../../utils/tables";
 import { TableColumnsRowsController, TableScrollController } from "../../stories-components/selection-menu";
+import { GroupCellProps } from "../../../src/components/table/group-rows";
 
 const storyInfoDefault = {
   inline: true,
   propTables: [Row, Table],
 };
+
+function CustomGroup({ className, group }: GroupCellProps) {
+  return (
+    <th className={className} style={{ borderRight: "solid 1px #eff0f0" }} colSpan={group.size}>
+      {group.label}
+    </th>
+  );
+}
 
 storiesOf("Table/Virtualized", module)
   .addDecorator(withThemeProvider)
@@ -42,10 +51,60 @@ storiesOf("Table/Virtualized", module)
           isVirtualized
           virtualizerProps={{
             fixedRows: object("fixedRows", [0, 1]),
-            fixedColumns: object("fixedColumns", [0, 1]),
+            fixedColumns: object("fixedColumns", [0, 1, 20]),
             height: number("height", 500),
             width: number("width", 1000),
             hiddenColumns: [13, 34],
+          }}
+        />
+      );
+    },
+    {
+      notes: { markdown: Readme },
+      info: storyInfoDefault,
+    }
+  )
+  .add(
+    "With grouped columns",
+    () => {
+      const table = generateTable(30, 100, {}, false);
+      return (
+        <Table
+          {...table}
+          groups={[
+            { id: "group1", label: "Group 1", subGroups: [{ id: "subgroup-1", label: "Sub-Group 1.1" }] },
+            {
+              id: "group2",
+              label: "Group 2",
+              subGroups: [
+                { id: "subgroup-2", label: "Sub-Group 2.1" },
+                {
+                  id: "subgroup-3",
+                  label: "Sub-Group 2.2",
+                  subGroups: [
+                    { id: "subgroup-4", label: "Sub-Group 2.2.1" },
+                    { id: "subgroup-5", label: "Sub-Group 2.2.2" },
+                  ],
+                },
+              ],
+            },
+          ]}
+          groupsProps={{ rowsOptions: { size: 30 }, CustomGroupCell: CustomGroup }}
+          columns={{
+            0: { groupId: "subgroup-1" },
+            1: { groupId: "subgroup-1" },
+            2: { groupId: "subgroup-2" },
+            3: { groupId: "subgroup-4" },
+            4: { groupId: "subgroup-4" },
+            5: { groupId: "subgroup-5" },
+            6: { groupId: "subgroup-5" },
+          }}
+          isSelectable={false}
+          isVirtualized
+          virtualizerProps={{
+            fixedColumns: object("fixedColumns", [0, 1]),
+            height: number("height", 500),
+            width: number("width", 1000),
           }}
         />
       );
