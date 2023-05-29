@@ -14,6 +14,7 @@ exports[`Table component should render a Table with 2 levels 1`] = `
       "elevations": {},
     }
   }
+  groupBranches={null}
   id="table-foo"
   indexesMapping={
     {
@@ -163,6 +164,7 @@ exports[`Table component should render a Table with 3 levels 1`] = `
       "elevations": {},
     }
   }
+  groupBranches={null}
   id="table-foo"
   indexesMapping={
     {
@@ -348,6 +350,7 @@ exports[`Table component should render a Table with spans 1`] = `
       "elevations": {},
     }
   }
+  groupBranches={null}
   id="table-foo"
   indexesMapping={
     {
@@ -596,6 +599,7 @@ exports[`Table component should render the default table 1`] = `
       "elevations": {},
     }
   }
+  groupBranches={null}
   id="table-foo"
   indexesMapping={
     {
