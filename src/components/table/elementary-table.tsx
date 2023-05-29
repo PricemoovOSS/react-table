@@ -5,7 +5,7 @@ import Row, { IRow, IRowOptions } from "./row";
 import { IIndexesMap, filterRowsByIndexes, getRowTreeLength, filterIndexes, IElevateds } from "../utils/table";
 import { ISelection } from "../table-selection/selection-handler";
 import { Nullable } from "../typing";
-import { GroupBranche, getColumnBranches, getMergedBranches } from "../utils/group";
+import { GroupBranch, getColumnBranches, getMergedBranches } from "../utils/group";
 import GroupRows, { GroupRowsProps } from "./group-rows";
 
 export enum Type {
@@ -79,7 +79,7 @@ export interface IElementaryTableProps<IDataCoordinates = any> extends IElementa
   /** The list of the opend rows and sub-rows */
   openedTrees: ITrees;
   /** To specify column groups tree structure  */
-  groupBranches: Nullable<Record<string, GroupBranche>>;
+  groupBranches: Nullable<Record<string, GroupBranch>>;
   /** Called when a cell of the row is opened */
   onRowOpen?: (openedTree: ITree) => void;
   /** Called when a cell of the row is closed */

@@ -1,7 +1,7 @@
 /// <reference path="../typings/tests-entry.d.ts" />
 
 import { IColumns } from "../../src/components";
-import { GroupBranche, getColumnBranches, getGroupBranches, getMergedBranches } from "../../src/components/utils";
+import { GroupBranch, getColumnBranches, getGroupBranches, getMergedBranches } from "../../src/components/utils";
 
 const groups = [
   { id: "group1", label: "Group 1", subGroups: [{ id: "subgroup-1", label: "Sub-Group 1.1" }] },
@@ -49,27 +49,27 @@ describe("Grou utils", () => {
 
   test("should return visible column branches", () => {
     const { groupBranches } = getGroupBranches(groups);
-    const result = getColumnBranches(groupBranches as Record<string, GroupBranche>, columns, [0, 1, 2, 3, 4, 5, 6]);
+    const result = getColumnBranches(groupBranches as Record<string, GroupBranch>, columns, [0, 1, 2, 3, 4, 5, 6]);
     expect(result).toMatchSnapshot();
   });
 
   test("should return empty column branches list", () => {
     const { groupBranches } = getGroupBranches(groups);
-    const result = getColumnBranches(groupBranches as Record<string, GroupBranche>, columns, []);
+    const result = getColumnBranches(groupBranches as Record<string, GroupBranch>, columns, []);
     expect(result).toEqual([]);
   });
 
   test("should return column branches (only default branche)", () => {
     const { groupBranches } = getGroupBranches(groups);
-    let result = getColumnBranches(groupBranches as Record<string, GroupBranche>, columns, [10, 11, 12]);
+    let result = getColumnBranches(groupBranches as Record<string, GroupBranch>, columns, [10, 11, 12]);
     expect(result).toMatchSnapshot();
-    result = getColumnBranches(groupBranches as Record<string, GroupBranche>, {}, [1, 2, 3, 4]);
+    result = getColumnBranches(groupBranches as Record<string, GroupBranch>, {}, [1, 2, 3, 4]);
     expect(result).toMatchSnapshot();
   });
 
   test("should return visible merged column branches", () => {
     const { groupBranches } = getGroupBranches(groups);
-    const result = getColumnBranches(groupBranches as Record<string, GroupBranche>, columns, [0, 1, 2, 3, 4, 5, 6]);
+    const result = getColumnBranches(groupBranches as Record<string, GroupBranch>, columns, [0, 1, 2, 3, 4, 5, 6]);
     const mergedBranches = getMergedBranches(result);
     expect(mergedBranches).toMatchSnapshot();
   });

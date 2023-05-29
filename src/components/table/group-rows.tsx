@@ -1,23 +1,23 @@
 import { computeRowStyle } from "../utils";
-import { GroupBranche } from "../utils/group";
+import { GroupBranch } from "../utils/group";
 import { IRowOptions } from "./row";
+
+export interface GroupCellProps {
+  group: GroupBranch;
+  className?: string;
+  index: number;
+  groups?: GroupBranch[];
+}
 
 export interface GroupRowsProps {
   rowsOptions?: IRowOptions;
   rowsStyle?: Omit<React.CSSProperties, "height">;
   /** cell content replacing the display of the group */
-  CustomGroupCell?: React.ComponentType<any>;
+  CustomGroupCell?: React.ComponentType<GroupCellProps>;
 }
 
 interface GroupRowProps extends GroupRowsProps {
-  groups: GroupBranche[];
-}
-
-export interface GroupCellProps {
-  group: GroupBranche;
-  className?: string;
-  index: number;
-  groups?: GroupBranche[];
+  groups: GroupBranch[];
 }
 
 function GroupCell({ className, group }: GroupCellProps) {

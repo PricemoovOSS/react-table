@@ -25,7 +25,7 @@ import SelectionHandler, { ISelection, ISelectionHandlerOptionalProps } from "..
 import { DEFAULT_ROW_HEIGHT, ROW_SPAN_WIDTH } from "../constants";
 import { ICell, ICellCoordinates } from "./cell";
 import shallowEqual from "../utils/shallowEqual";
-import { Group, GroupBranche, getGroupBranches } from "../utils/group";
+import { Group, GroupBranch, getGroupBranches } from "../utils/group";
 
 interface IVirtualizerProps extends Partial<IVirtualizerOptionalProps> {
   /**  The width of the visible window. To specify if not responsive */
@@ -96,7 +96,7 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
     customSizes: {},
   };
 
-  private groupBranches: Record<string, GroupBranche> | undefined;
+  private groupBranches: Record<string, GroupBranch> | undefined;
 
   private groupsDepth = 0;
 

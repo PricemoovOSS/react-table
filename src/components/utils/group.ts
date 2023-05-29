@@ -7,12 +7,12 @@ export interface Group {
   subGroups?: Group[];
 }
 
-export interface GroupBranche extends Group {
+export interface GroupBranch extends Group {
   size: number;
-  subGroups?: GroupBranche[];
+  subGroups?: GroupBranch[];
 }
 
-const DEFAULT_GROUP_ID = "default-group-id";
+export const DEFAULT_GROUP_ID = "default-group-id";
 
 /**
  *
@@ -21,7 +21,7 @@ const DEFAULT_GROUP_ID = "default-group-id";
  */
 export function getGroupBranches(groups: Group[] = []): {
   depth: number;
-  groupBranches: Record<string, GroupBranche> | undefined;
+  groupBranches: Record<string, GroupBranch> | undefined;
 } {
   if (groups.length === 0) {
     return { depth: 0, groupBranches: undefined };
@@ -47,21 +47,21 @@ export function getGroupBranches(groups: Group[] = []): {
  * @param branches the list of alll branches
  * @returns Groups with their sizes
  */
-export function getMergedBranches(branches: GroupBranche[]): GroupBranche[] {
-  let currentBranche: GroupBranche;
-  const result: GroupBranche[] = [];
+export function getMergedBranches(branches: GroupBranch[]): GroupBranch[] {
+  let currentBranch: GroupBranch;
+  const result: GroupBranch[] = [];
   branches.forEach((branche, index) => {
-    if (!currentBranche || currentBranche.id !== branche.id) {
-      if (currentBranche) {
-        result.push(currentBranche);
+    if (!currentBranch || currentBranch.id !== branche.id) {
+      if (currentBranch) {
+        result.push(currentBranch);
       }
-      currentBranche = branche;
-    } else if (currentBranche) {
-      currentBranche = mergeBranches(branche, currentBranche);
-      currentBranche.size += branche.size;
+      currentBranch = branche;
+    } else if (currentBranch) {
+      currentBranch = mergeBranches(branche, currentBranch);
+      currentBranch.size += branche.size;
     }
     if (index === branches.length - 1) {
-      result.push(currentBranche);
+      result.push(currentBranch);
     }
   });
 
@@ -76,11 +76,11 @@ export function getMergedBranches(branches: GroupBranche[]): GroupBranche[] {
  * @returns the list of branches associated with each specified column
  */
 export function getColumnBranches(
-  groupBranches: Record<string, GroupBranche>,
+  groupBranches: Record<string, GroupBranch>,
   columns: IColumns = {},
   visibleColumnIndexes: number[] = []
-): GroupBranche[] {
-  return visibleColumnIndexes.reduce<GroupBranche[]>((acc, cellIndex) => {
+): GroupBranch[] {
+  return visibleColumnIndexes.reduce<GroupBranch[]>((acc, cellIndex) => {
     const column = columns[cellIndex];
     const groupId = column?.groupId || DEFAULT_GROUP_ID;
     const branche = groupBranches[groupId];
@@ -107,18 +107,18 @@ function equalizeGroupDepths(groups: Group[], depth = 0): number {
   return depth + 1;
 }
 
-function groupsToBranches(groups: Group[]): GroupBranche[] {
-  return groups.reduce<GroupBranche[]>((acc, group) => {
+function groupsToBranches(groups: Group[]): GroupBranch[] {
+  return groups.reduce<GroupBranch[]>((acc, group) => {
     const subBranches = groupsToBranches(group.subGroups || []);
     if (subBranches.length > 0) {
       subBranches.forEach((subBranche) => {
-        const newGroup = clone(group) as GroupBranche;
+        const newGroup = clone(group) as GroupBranch;
         newGroup.size = 1;
         newGroup.subGroups = [subBranche];
         acc.push(newGroup);
       });
     } else {
-      const newGroup = clone(group) as GroupBranche;
+      const newGroup = clone(group) as GroupBranch;
       newGroup.size = 1;
       acc.push(newGroup);
     }
@@ -127,20 +127,20 @@ function groupsToBranches(groups: Group[]): GroupBranche[] {
   }, []);
 }
 
-function getLeaves(group: GroupBranche): GroupBranche[] {
+function getLeaves(group: GroupBranch): GroupBranch[] {
   if (!group.subGroups || group.subGroups.length === 0) {
     return [group];
   }
-  return group.subGroups.reduce<GroupBranche[]>((acc, subGroup) => {
+  return group.subGroups.reduce<GroupBranch[]>((acc, subGroup) => {
     acc.push(...getLeaves(subGroup));
     return acc;
   }, []);
 }
 
-function mergeBranches(source: GroupBranche, target: GroupBranche): GroupBranche {
+function mergeBranches(source: GroupBranch, target: GroupBranch): GroupBranch {
   if (source.subGroups && source.subGroups.length > 0) {
-    const sourceSubBranche = source.subGroups.shift() as GroupBranche;
-    const targetSubBranche = target.subGroups?.pop() as GroupBranche;
+    const sourceSubBranche = source.subGroups.shift() as GroupBranch;
+    const targetSubBranche = target.subGroups?.pop() as GroupBranch;
     if (sourceSubBranche.id === targetSubBranche.id) {
       const mergedBranche = mergeBranches(sourceSubBranche, targetSubBranche);
       mergedBranche.size = sourceSubBranche.size + targetSubBranche.size;
