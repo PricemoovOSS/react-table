@@ -12,3 +12,6 @@ export * from "./cell";
 
 export { default as ElementaryTable } from "./elementary-table";
 export * from "./elementary-table";
+
+export { default as GroupRows } from "./group-rows";
+export * from "./group-rows";
