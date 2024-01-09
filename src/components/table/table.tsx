@@ -5,7 +5,6 @@ import { IRowOptions } from "./row";
 import ResponsiveContainer, { IResponsiveContainerOptionalProps } from "../responsive-container";
 import Virtualizer, { IVirtualizerOptionalProps } from "../virtualizer";
 import {
-  getTreesLength,
   getAllIndexesMap,
   IIndexesMap,
   getItemsCustomSizes,
@@ -15,11 +14,13 @@ import {
   getColumnsLength,
   getCellPath,
   getCell,
-  IRelativeIndexesMap,
   IElevateds,
   getDenseColumns,
   CustomSizesElements,
   relativeToAbsoluteObject,
+  getRowslength,
+  syncOpenedTreesWithRows,
+  getFixedRowsIndexes,
 } from "../utils/table";
 import SelectionHandler, { ISelection, ISelectionHandlerOptionalProps } from "../table-selection/selection-handler";
 import { DEFAULT_ROW_HEIGHT, ROW_SPAN_WIDTH } from "../constants";
@@ -120,9 +121,9 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
     this.state = {
       indexesMapping,
       openedTrees: initialOpenedTrees,
-      rowsLength: this.getRowslength(initialOpenedTrees),
+      rowsLength: getRowslength(initialOpenedTrees, rows),
       columnsIndexesIdsMapping: rows[0] ? getIndexesIdsMapping(rows[0].cells) : {},
-      fixedRowsIndexes: this.getFixedRowsIndexes(initialOpenedTrees, indexesMapping.relative),
+      fixedRowsIndexes: getFixedRowsIndexes(initialOpenedTrees, indexesMapping.relative, rows, fixedRows),
     };
     if (isVirtualized) {
       this.customCellsHeight = getItemsCustomSizes(rowsProps, fixedRows, hiddenRows);
@@ -141,6 +142,24 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
       !shallowEqual(otherProps, nextOtherProps) ||
       !shallowEqual(otherVirtualizerProps, nextOtherVirtualizerProps)
     );
+  }
+
+  static getDerivedStateFromProps(props: ITableProps, state: IState) {
+    const {
+      rows,
+      virtualizerProps: { fixedRows },
+    } = props;
+
+    const newOpenedTrees = syncOpenedTreesWithRows(state.openedTrees, rows);
+
+    const newIndexesMapping = getAllIndexesMap(newOpenedTrees, rows);
+    return {
+      openedTrees: newOpenedTrees,
+      indexesMapping: newIndexesMapping,
+      rowsLength: getRowslength(newOpenedTrees, rows),
+      columnsIndexesIdsMapping: rows[0] ? getIndexesIdsMapping(rows[0].cells) : {},
+      fixedRowsIndexes: getFixedRowsIndexes(newOpenedTrees, newIndexesMapping.relative, rows, fixedRows),
+    };
   }
 
   public componentDidUpdate(prevProps: ITableProps<IDataCoordinates>) {
@@ -169,16 +188,9 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
 
     if (prevProps.rows !== rows) {
       this.columnsLength = getColumnsLength(rows);
-      const newIndexesMapping = getAllIndexesMap(openedTrees, rows);
-      this.setState({
-        indexesMapping: newIndexesMapping,
-        rowsLength: this.getRowslength(openedTrees),
-        columnsIndexesIdsMapping: rows[0] ? getIndexesIdsMapping(rows[0].cells) : {},
-        fixedRowsIndexes: this.getFixedRowsIndexes(openedTrees, newIndexesMapping.relative),
-      });
     } else if (!isEqual(prevProps.virtualizerProps?.fixedRows, virtualizerProps?.fixedRows)) {
       this.setState({
-        fixedRowsIndexes: this.getFixedRowsIndexes(openedTrees, indexesMapping.relative),
+        fixedRowsIndexes: getFixedRowsIndexes(openedTrees, indexesMapping.relative, rows, fixedRows),
       });
     }
   }
@@ -187,23 +199,6 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
     const { depth, groupBranches } = getGroupBranches(groups);
     this.groupBranches = groupBranches;
     this.groupsDepth = depth;
-  };
-
-  private getFixedRowsIndexes = (openedTrees: ITrees, relativeIndexesMapping: IRelativeIndexesMap) => {
-    const {
-      rows,
-      virtualizerProps: { fixedRows },
-    } = this.props;
-    const newfixedRowsIndexes = (fixedRows && relativeToAbsoluteIndexes(fixedRows, relativeIndexesMapping)) || [];
-    return Object.keys(openedTrees).reduce<number[]>((result, rowIndex) => {
-      const { fixSubRows } = rows[rowIndex];
-      if (fixSubRows) {
-        const { subItems } = relativeIndexesMapping[rowIndex];
-        const rowSubItems = subItems || {};
-        result.push(...Object.keys(rowSubItems).map((subItem) => rowSubItems[subItem].index));
-      }
-      return result;
-    }, newfixedRowsIndexes);
   };
 
   private getColumnsProps = (cellWidth: number) => {
@@ -224,24 +219,21 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
     return this.globalRowProps;
   };
 
-  private getRowslength = (openedTrees: ITrees): number => {
-    const { rows } = this.props;
-    let rowsLength = (rows && rows.length) || 0;
-    rowsLength += openedTrees ? getTreesLength(openedTrees, rows) : 0;
-    return rowsLength;
-  };
-
   private updateRowsLength = (openedTrees: ITrees) => {
-    const { rows, onOpenedTreesUpdate } = this.props;
+    const {
+      rows,
+      onOpenedTreesUpdate,
+      virtualizerProps: { fixedRows },
+    } = this.props;
     const newIndexesMapping = getAllIndexesMap(openedTrees, rows);
-    const newRowsLength = this.getRowslength(openedTrees);
+    const newRowsLength = getRowslength(openedTrees, rows);
 
     this.setState(
       {
         indexesMapping: newIndexesMapping,
         openedTrees,
         rowsLength: newRowsLength,
-        fixedRowsIndexes: this.getFixedRowsIndexes(openedTrees, newIndexesMapping.relative),
+        fixedRowsIndexes: getFixedRowsIndexes(openedTrees, newIndexesMapping.relative, rows, fixedRows),
       },
       () => {
         if (onOpenedTreesUpdate) {

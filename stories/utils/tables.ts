@@ -176,6 +176,43 @@ export const subMiam: IRow[] = [
   },
 ];
 
+export const subMiamMiam: IRow[] = [
+  {
+    id: "miam",
+    cells: [
+      {
+        id: "sushi",
+        value: "Sushi",
+      },
+      {
+        id: "pizza",
+        value: "Pizza",
+      },
+      {
+        id: "mafe",
+        value: "Mafe",
+      },
+    ],
+  },
+  {
+    id: "miam-miam",
+    cells: [
+      {
+        id: "carrot",
+        value: "Carrot",
+      },
+      {
+        id: "apple",
+        value: "Apple",
+      },
+      {
+        id: "pear",
+        value: "Pear",
+      },
+    ],
+  },
+];
+
 export const tableWithSubItems = ({
   firstSubRows = [],
   secondSubRows = [],
@@ -507,7 +544,14 @@ function generateRowWithCustomColumns(
   });
 }
 
-export function generateRow(index: number, cellsCount: number, subRow = false, level = 0, colspanMatrix?: any): IRow {
+export function generateRow(
+  index: number,
+  cellsCount: number,
+  subRow = false,
+  level = 0,
+  colspanMatrix?: any,
+  subSize = 20
+): IRow {
   const cells = Array.from(Array(cellsCount), (_, cellIndex) => {
     const currentCell =
       colspanMatrix && colspanMatrix[index]
@@ -519,7 +563,9 @@ export function generateRow(index: number, cellsCount: number, subRow = false, l
       colspan: currentCell ? currentCell.colspan : 1,
       subItems:
         subRow && cellIndex === 0 && index === 2
-          ? Array.from(Array(20), (_, rowIndex) => generateRow(rowIndex, cellsCount, level <= 2, level + 1))
+          ? Array.from(Array(subSize), (_, rowIndex) =>
+              generateRow(rowIndex, cellsCount, level <= 2, level + 1, colspanMatrix, subSize)
+            )
           : [],
     };
   });
@@ -531,7 +577,9 @@ export function generateRow(index: number, cellsCount: number, subRow = false, l
 }
 
 export function generateTable(rowsCount: number, cellsCount: number, props = {}, subRow = false) {
-  const rows = Array.from(Array(rowsCount), (_, rowIndex) => generateRow(rowIndex, cellsCount, subRow));
+  const rows = Array.from(Array(rowsCount), (_, rowIndex) =>
+    generateRow(rowIndex, cellsCount, subRow, undefined, undefined, rowsCount)
+  );
   return {
     id: "table-foo",
     ...props,

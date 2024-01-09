@@ -10,6 +10,7 @@ import { withThemeProvider } from "../../utils/decorators";
 import { generateTable, generateTableWithCustomColspan, generateRow } from "../../utils/tables";
 import { TableColumnsRowsController, TableScrollController } from "../../stories-components/selection-menu";
 import { GroupCellProps } from "../../../src/components/table/group-rows";
+import { TableWithDynamicSubColumns } from "../../stories-components/dynamic-sub-columns";
 
 const storyInfoDefault = {
   inline: true,
@@ -231,6 +232,13 @@ storiesOf("Table/Virtualized", module)
         />
       </div>
     ),
+    { notes: { markdown: Readme } }
+  )
+  .add(
+    "With dynamic sub rows",
+    () => {
+      return <TableWithDynamicSubColumns />;
+    },
     { notes: { markdown: Readme } }
   )
   .add(

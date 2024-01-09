@@ -346,10 +346,43 @@ export const filterRowsByIndexes = (
   return [null, rows];
 };
 
+/**
+ * Updates the openedTrees object to keep it in sync with the rows.
+ * @param openedTrees previous trees object
+ * @param rows the new computed rows
+ * @returns the new opened trees object updated according to the new rows
+ */
+export const syncOpenedTreesWithRows = (openedTrees: ITrees, rows: IRow[] = []): ITrees => {
+  const subTrees = Object.entries(openedTrees).filter(([, tree]) => {
+    const row = rows[tree.rowIndex];
+    const cell = row?.cells[tree.columnIndex];
+    if (!cell?.subItems?.length) {
+      return false;
+    }
+    if (tree.subTrees) {
+      const subItems = row.cells.flatMap((cell) => cell.subItems || []);
+      tree.subTrees = syncOpenedTreesWithRows(tree.subTrees, subItems);
+    }
+    return true;
+  });
+  return Object.fromEntries(subTrees);
+};
+
+/**
+ * Returns the total number of visible rows (including sub rows)
+ * @param openedTrees state of the current opened sub rows
+ * @param rows current rows displayed on the table
+ * @returns the total number of visible rows (including sub rows)
+ */
+export const getRowslength = (openedTrees: ITrees, rows: IRow[]): number => {
+  let rowsLength = rows?.length || 0;
+  rowsLength += openedTrees ? getTreesLength(openedTrees, rows) : 0;
+  return rowsLength;
+};
+
 export const getTreesLength = (trees: ITrees, rows: IRow[]): number => {
   return Object.keys(trees).reduce((currentSum, rowIndex) => currentSum + getTreeLength(trees[rowIndex], rows), 0);
 };
-
 export const getTreeLength = (tree: ITree, rows: IRow[]): number => {
   const { rowIndex, columnIndex, subTrees } = tree;
   const row = rows[rowIndex];
@@ -496,6 +529,24 @@ export const getItemsCustomSizes = (
 export const getVisibleIndexesInsideDatalength = (dataLength: number, visibleIndexes: number[]): number[] => {
   const lastVisibleIndex = visibleIndexes[visibleIndexes.length - 1];
   return lastVisibleIndex < dataLength ? visibleIndexes : visibleIndexes.filter((column) => column < dataLength);
+};
+
+export const getFixedRowsIndexes = (
+  openedTrees: ITrees,
+  relativeIndexesMapping: IRelativeIndexesMap,
+  rows: IRow[],
+  fixedRows: number[] | undefined
+): number[] => {
+  const newFixedRowsIndexes = (fixedRows && relativeToAbsoluteIndexes(fixedRows, relativeIndexesMapping)) || [];
+  return Object.keys(openedTrees).reduce<number[]>((result, rowIndex) => {
+    const { fixSubRows } = rows[rowIndex];
+    if (fixSubRows) {
+      const { subItems } = relativeIndexesMapping[rowIndex];
+      const rowSubItems = subItems || {};
+      result.push(...Object.keys(rowSubItems).map((subItem) => rowSubItems[subItem].index));
+    }
+    return result;
+  }, newFixedRowsIndexes);
 };
 
 /**

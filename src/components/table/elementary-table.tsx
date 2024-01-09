@@ -21,9 +21,7 @@ export interface ITree {
   subTrees?: ITrees;
 }
 
-export interface ITrees {
-  [rowIndex: number]: ITree;
-}
+export type ITrees = Record<number, ITree>;
 
 export interface IColumnOptions {
   className?: string;
