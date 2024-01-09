@@ -3,7 +3,7 @@ import { createRenderer } from "react-test-renderer/shallow";
 
 import { mount } from "enzyme";
 import Table, { IState } from "../../../src/components/table/table";
-import { simpleTable, tableWithSubItems, subRows, subMiam, generateTable } from "../../../stories/utils/tables";
+import { simpleTable, tableWithSubItems, subRows, subMiam, generateTable, subMiamMiam } from "../../../stories/utils/tables";
 import { withThemeProvider } from "../../../stories/utils/decorators";
 import { getIndexesIdsMapping } from "../../../src/components/utils/table";
 
@@ -153,6 +153,33 @@ describe("Table component", () => {
       rowsLength: 4,
       fixedRowsIndexes: [],
     };
+    expect(instance.state).toEqual(expectedState);
+  });
+
+  test("should render sub rows even if the sub row size has changed", () => {
+    const props = {
+      id: "foo",
+      rows: subRows({ subsubRows: subMiamMiam }),
+    };
+    const wrapper = mount(withThemeProvider(() => <Table {...props} />));
+    wrapper.setProps({ rows: subRows({ subsubRows: subMiam }) });
+
+    const instance: Table = wrapper.find(Table).instance() as Table;
+    // @ts-ignore private method
+    const expectedState: IState = {
+      rowsLength: 2,
+      indexesMapping: {
+        absolute: {
+          "0": { index: 0, parentIndex: null },
+          "1": { index: 1, parentIndex: null },
+        },
+        relative: { "0": { index: 0 }, "1": { index: 1 } },
+      },
+      columnsIndexesIdsMapping: getIndexesIdsMapping(props.rows[0].cells),
+      openedTrees: {},
+      fixedRowsIndexes: [],
+    };
+
     expect(instance.state).toEqual(expectedState);
   });
 
