@@ -107,6 +107,20 @@ export interface IVirtualizerProps extends IVirtualizerOptionalProps {
 
 interface IState extends IRowsState, IColumnState {}
 
+export interface VirtualizerContextProps {
+  cellHeight: number;
+  cellWidth: number;
+  visibleColumnIndexes: number[];
+  visibleRowIndexes: number[];
+}
+
+export const VirtualizerContext: React.Context<VirtualizerContextProps> = React.createContext<VirtualizerContextProps>({
+  cellHeight: 0,
+  cellWidth: 0,
+  visibleColumnIndexes: [],
+  visibleRowIndexes: [],
+});
+
 class Virtualizer extends React.Component<IVirtualizerProps, IState> {
   public static defaultProps = {
     fixedColumns: [],
@@ -441,6 +455,9 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
   public render() {
     const { children, columnsLength, rowsLength, hiddenColumns, width, height, scrollbarSize } = this.props;
     const { elevatedColumnIndexes, elevatedRowIndexes, visibleColumnIndexes, visibleRowIndexes } = this.state;
+    // We need to adjust the indexes to the data length
+    const visibleAdjestedColumnIndexes = getVisibleIndexesInsideDatalength(columnsLength, visibleColumnIndexes);
+    const visibleAdjestedRowIndexes = getVisibleIndexesInsideDatalength(rowsLength, visibleRowIndexes);
 
     return (
       <Scroller
@@ -454,17 +471,30 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
         ignoredHorizontalParts={hiddenColumns}
         scrollbarSize={scrollbarSize}
       >
-        {children({
-          visibleColumnIndexes: getVisibleIndexesInsideDatalength(columnsLength, visibleColumnIndexes),
-          visibleRowIndexes: getVisibleIndexesInsideDatalength(rowsLength, visibleRowIndexes),
-          elevatedColumnIndexes,
-          elevatedRowIndexes,
-          cellHeight: this.verticalData.itemSize,
-          cellWidth: this.horizontalData.itemSize,
-        })}
+        <VirtualizerContext.Provider
+          value={{
+            cellHeight: this.verticalData.itemSize,
+            cellWidth: this.horizontalData.itemSize,
+            visibleColumnIndexes: visibleAdjestedColumnIndexes,
+            visibleRowIndexes: visibleAdjestedRowIndexes,
+          }}
+        >
+          {children({
+            visibleColumnIndexes: visibleAdjestedColumnIndexes,
+            visibleRowIndexes: visibleAdjestedRowIndexes,
+            elevatedColumnIndexes,
+            elevatedRowIndexes,
+            cellHeight: this.verticalData.itemSize,
+            cellWidth: this.horizontalData.itemSize,
+          })}
+        </VirtualizerContext.Provider>
       </Scroller>
     );
   }
+}
+
+export function useVirtualizerManager() {
+  return React.useContext(VirtualizerContext);
 }
 
 export default Virtualizer;

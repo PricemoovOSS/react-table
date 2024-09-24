@@ -11,8 +11,26 @@ exports[`Virtualizer should render children 1`] = `
   virtualWidth={5000}
   width={200}
 >
-  <div>
-    Foo
-  </div>
+  <Context.Provider
+    value={
+      {
+        "cellHeight": 100,
+        "cellWidth": 100,
+        "visibleColumnIndexes": [
+          0,
+          1,
+          2,
+        ],
+        "visibleRowIndexes": [
+          0,
+          1,
+        ],
+      }
+    }
+  >
+    <div>
+      Foo
+    </div>
+  </Context.Provider>
 </Scroller>
 `;
