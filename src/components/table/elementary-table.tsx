@@ -2,11 +2,19 @@ import * as React from "react";
 import classnames from "classnames";
 
 import Row, { IRow, IRowOptions } from "./row";
-import { IIndexesMap, filterRowsByIndexes, getRowTreeLength, filterIndexes, IElevateds } from "../utils/table";
+import {
+  IIndexesMap,
+  filterRowsByIndexes,
+  getRowTreeLength,
+  filterIndexes,
+  IElevateds,
+  getSubRowsCellIndex,
+} from "../utils/table";
 import { ISelection } from "../table-selection/selection-handler";
 import { Nullable } from "../typing";
 import { GroupBranch, getColumnBranches, getMergedBranches } from "../utils/group";
 import GroupRows, { GroupRowsProps } from "./group-rows";
+import { SubRowsToggleButtonComponentProps } from "./cell";
 
 export enum Type {
   error = "error",
@@ -67,6 +75,12 @@ export interface IElementaryTable<IDataCoordinates = any> {
   isSpan?: boolean;
   /** Options to customize any group rows, such as size */
   groupsProps?: GroupRowsProps;
+  /**
+   * Optional React component used to render a toggle button
+   * for opening/closing subRows inside the cells.
+   * defult = DefaultSubRowsToggleButtonComponent
+   */
+  SubRowsToggleButtonComponent?: React.ComponentType<SubRowsToggleButtonComponentProps>;
 }
 
 export interface IElementaryTableProps<IDataCoordinates = any> extends IElementaryTable<IDataCoordinates>, ISelection {
@@ -139,6 +153,7 @@ class ElementaryTable extends React.Component<IElementaryTableProps> {
       onCellMouseEnter,
       onCellContextMenu,
       selectedCells,
+      SubRowsToggleButtonComponent,
     } = this.props;
     const [relativeIndexes, rowsToRender] = this.getVisibleRows(rows, null, fixedRowsIndexes);
 
@@ -175,6 +190,7 @@ class ElementaryTable extends React.Component<IElementaryTableProps> {
             className={classnames(row.className, {
               [`elevated-${elevation}`]: elevation,
             })}
+            subRowsCellIndex={getSubRowsCellIndex(row)}
             style={rowStyle}
             absoluteIndex={rowAbsoluteIndex}
             index={rowIndex}
@@ -198,6 +214,7 @@ class ElementaryTable extends React.Component<IElementaryTableProps> {
             // Table utils
             getVisibleRows={this.getVisibleRows}
             getRowTreeLength={this.getRowTreeLength}
+            SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
           />
         );
 

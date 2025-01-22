@@ -37,7 +37,7 @@ describe("Scroller component", () => {
   it("should scroll to the expected scrollTop value (native scrolling)", () => {
     const onScroll = jest.fn();
     const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
+    const scrollerInstance: Scroller = wrapper.instance() as unknown as Scroller;
     // @ts-ignore scrollerContainer is prevate
     scrollerInstance.scrollerContainer.current.scrollTop = 1500;
     // simulate the scroll event
@@ -58,7 +58,7 @@ describe("Scroller component", () => {
   it("should scroll to the expected scrollTop value", () => {
     const onScroll = jest.fn();
     const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
+    const scrollerInstance: Scroller = wrapper.instance() as unknown as Scroller;
     const scrollTop = 1500;
     scrollerInstance.scrollToTop(scrollTop);
     // @ts-ignore scrollOrigin is prevate
@@ -83,7 +83,7 @@ describe("Scroller component", () => {
   it("should reach the bottom", () => {
     const onScroll = jest.fn();
     const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
+    const scrollerInstance: Scroller = wrapper.instance() as unknown as Scroller;
     const maxScrollTop = scrollerProps.virtualHeight - scrollerProps.height - 5 + SCROLLBAR_SIZE;
     scrollerInstance.scrollToTop(maxScrollTop);
     // @ts-ignore scrollOrigin is private
@@ -108,7 +108,7 @@ describe("Scroller component", () => {
   it("should scroll to the expected scrollLeft value (native scrolling)", () => {
     const onScroll = jest.fn();
     const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
+    const scrollerInstance: Scroller = wrapper.instance() as unknown as Scroller;
     // @ts-ignore scrollerContainer is private
     scrollerInstance.scrollerContainer.current.scrollLeft = 1500;
     // simulate the scroll event
@@ -129,7 +129,7 @@ describe("Scroller component", () => {
   it("should scroll to the expected scrollLeft value", () => {
     const onScroll = jest.fn();
     const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
+    const scrollerInstance: Scroller = wrapper.instance() as unknown as Scroller;
     const scrollLeft = 1500;
     scrollerInstance.scrollToLeft(scrollLeft);
     // @ts-ignore scrollOrigin is private
@@ -154,7 +154,7 @@ describe("Scroller component", () => {
   it("should reach the right", () => {
     const onScroll = jest.fn();
     const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
+    const scrollerInstance: Scroller = wrapper.instance() as unknown as Scroller;
     const maxScrollLeft = scrollerProps.virtualWidth - scrollerProps.width - 5 + SCROLLBAR_SIZE;
     scrollerInstance.scrollToLeft(maxScrollLeft);
     // @ts-ignore scrollOrigin is private

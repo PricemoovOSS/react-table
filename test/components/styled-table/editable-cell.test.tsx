@@ -102,7 +102,7 @@ describe("EdiTableCell component", () => {
       formatValue,
     };
     const wrapper = mount(withThemeProvider(() => <EdiTableCell {...props} />));
-    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as EdiTableCell;
+    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as unknown as EdiTableCell;
     // onClick
     wrapper.find("[data-testid='editable-cell']").simulate("click");
     expect(editableCellInstance.state.isFocused).toBeTruthy();
@@ -118,7 +118,7 @@ describe("EdiTableCell component", () => {
       formatValue,
     };
     const wrapper = mount(withThemeProvider(() => <EdiTableCell {...props} />));
-    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as EdiTableCell;
+    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as unknown as EdiTableCell;
     // @ts-ignore onValueChangeHandle is a private method
     editableCellInstance.onValueChangeHandle({ value: "22" });
     expect(editableCellInstance.state.inputValue).toEqual("22");
@@ -138,7 +138,7 @@ describe("EdiTableCell component", () => {
       formatValue,
     };
     const wrapper = mount(withThemeProvider(() => <EdiTableCell {...props} />));
-    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as EdiTableCell;
+    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as unknown as EdiTableCell;
     // @ts-ignore onValueChangeHandle is a private method
     editableCellInstance.onValueChangeHandle({ value: "22" });
     expect(editableCellInstance.state.inputValue).toEqual("22");
@@ -158,7 +158,7 @@ describe("EdiTableCell component", () => {
       formatValue,
     };
     const wrapper = mount(withThemeProvider(() => <EdiTableCell {...props} />));
-    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as EdiTableCell;
+    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as unknown as EdiTableCell;
     // @ts-ignore onValueChangeHandle is a private method
     editableCellInstance.onValueChangeHandle({ value: "" });
     expect(editableCellInstance.state.inputValue).toEqual("");
@@ -178,7 +178,7 @@ describe("EdiTableCell component", () => {
       formatValue,
     };
     const wrapper = mount(withThemeProvider(() => <EdiTableCell {...props} />));
-    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as EdiTableCell;
+    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as unknown as EdiTableCell;
     // @ts-ignore onValueChangeHandle is a private method
     editableCellInstance.onValueChangeHandle({ value: "" });
     expect(editableCellInstance.state.inputValue).toEqual("");
@@ -198,7 +198,7 @@ describe("EdiTableCell component", () => {
       formatValue,
     };
     const wrapper = mount(withThemeProvider(() => <EdiTableCell {...props} />));
-    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as EdiTableCell;
+    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as unknown as EdiTableCell;
     // @ts-ignore onValueChangeHandle is a private method
     editableCellInstance.onValueChangeHandle({ value: "22" });
     expect(editableCellInstance.state.inputValue).toEqual("22");
@@ -217,7 +217,7 @@ describe("EdiTableCell component", () => {
       formatValue,
     };
     const wrapper = mount(withThemeProvider(() => <EdiTableCell {...props} />));
-    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as EdiTableCell;
+    const editableCellInstance: EdiTableCell = wrapper.find(EdiTableCell).instance() as unknown as EdiTableCell;
     // @ts-ignore onValueChangeHandle is a private method
     editableCellInstance.onValueChangeHandle({ value: "22" });
     // @ts-ignore onKeyPress is a private method and is not assignable to parameter of type 'KeyBoardEvent'

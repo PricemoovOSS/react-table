@@ -101,7 +101,7 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
 
   private groupsDepth = 0;
 
-  private virtualizer: React.RefObject<Virtualizer> = React.createRef<Virtualizer>();
+  private virtualizer = React.createRef<Virtualizer>();
 
   private columnsLength = 0;
 

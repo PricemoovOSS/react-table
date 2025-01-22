@@ -68,7 +68,7 @@ class Scroller extends React.Component<IScrollerProps> {
     scrollbarSize: SCROLLBAR_SIZE,
   };
 
-  private scrollerContainer: React.RefObject<HTMLDivElement> = React.createRef();
+  private scrollerContainer = React.createRef<HTMLDivElement>();
 
   private scrollOrigin: ScrollOrigin = ScrollOrigin.native;
 
