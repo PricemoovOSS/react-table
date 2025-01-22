@@ -45,16 +45,8 @@ $bg-color: $light-grey-color;
   }
 
   &.last-sub-row {
-    .table-column:not(.row-span-column):first-child::after {
-      content: "";
-      width: 10px;
-      height: 10px;
-      border-radius: 100%;
-      position: absolute;
-      top: calc(15px + 100% / 2);
-      background-color: $bg-color;
-      right: calc(100% - 35px);
-      box-shadow: 1px 0px 3px 0px rgba(0, 0, 0, 0.5);
+    .table-column:not(.row-span-column):first-child::before {
+      height: calc(50% - 5px) !important;
     }
   }
 
@@ -67,39 +59,25 @@ $bg-color: $light-grey-color;
     }
   }
 
-  &.opened {
-    .table-column.row-span-column + .table-column::after,
-    .table-column:not(.row-span-column):first-child::after {
-      content: "";
-      width: 10px;
-      height: 10px;
-      border-radius: 100%;
-      position: absolute;
-      top: calc(15px + 100% / 2);
-      background-color: $bg-color;
-      right: calc(100% - 35px);
-      box-shadow: 1px 0px 3px 0px rgba(0, 0, 0, 0.5);
-    }
-    @for $level from 1 through $max-row-level-1 {
-      $padding: (($level + 1) * 30)+5;
-      &.sub-row__#{$level} {
-        .table-column.row-span-column + .table-column::after,
-        .table-column:not(.row-span-column):first-child::after {
-          right: calc(100% - #{$padding}px) !important;
-        }
-      }
-    }
-  }
-
   &.sub-row {
-    .table-column:not(.row-span-column):first-child {
+    .table-column.table-sub-cell:not(.row-span-column) {
       &::before {
         content: "";
         border-left: solid 1px $bg-color;
         position: absolute;
         height: 100%;
-        top: calc(15px - 100% / 2);
-        box-shadow: 1px 0px 3px 0px rgba(0, 0, 0, 0.5);
+        top: 0;
+      }
+      &::after {
+        content: "";
+        border-left: solid 1px $bg-color;
+        position: absolute;
+        top: calc(50% - 5px);
+        height: 5px;
+        width: 10px;
+        border-bottom-left-radius: 40px;
+        border-bottom: solid 1px $bg-color;
+        right: 70px;
       }
       .table-cell-container {
         padding-left: 30px;
@@ -108,10 +86,14 @@ $bg-color: $light-grey-color;
 
     @for $level from 1 through $max-row-level {
       $padding: ($level * 30);
+      $padding_item: (($level) * 30 + 10);
       &__#{$level} {
-        .table-column:not(.row-span-column):first-child {
+        .table-column.table-sub-cell:not(.row-span-column) {
           &::before {
             right: calc(100% - #{$padding}px) !important;
+          }
+          &::after {
+            right: calc(100% - #{$padding_item}px) !important;
           }
           .table-cell-container {
             padding-left: #{$padding}px;

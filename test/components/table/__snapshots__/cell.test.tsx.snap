@@ -28,23 +28,16 @@ exports[`Cell component should render a cell with closed subItems 1`] = `
     }
   >
     <div
-      className="table-cell-container"
+      className="table-cell-container table-cell-container__with-toggle"
       style={
         {
           "justifyContent": undefined,
         }
       }
     >
-      <ForwardRef(IconButton)
-        className="table-cell-sub-item-toggle"
-        data-testid="table-cell-sub-item-toggle"
+      <DefaultSubRowsToggleButtonComponent
         onClick={[Function]}
-        size="large"
-      >
-        <ForwardRef(Icon)>
-          keyboard_arrow_right
-        </ForwardRef(Icon)>
-      </ForwardRef(IconButton)>
+      />
       <div
         className="cell-value"
         style={
@@ -241,23 +234,17 @@ exports[`Cell component should render a cell with opened subItems 1`] = `
     }
   >
     <div
-      className="table-cell-container"
+      className="table-cell-container table-cell-container__with-toggle"
       style={
         {
           "justifyContent": undefined,
         }
       }
     >
-      <ForwardRef(IconButton)
-        className="table-cell-sub-item-toggle"
-        data-testid="table-cell-sub-item-toggle"
+      <DefaultSubRowsToggleButtonComponent
         onClick={[Function]}
-        size="large"
-      >
-        <ForwardRef(Icon)>
-          keyboard_arrow_down
-        </ForwardRef(Icon)>
-      </ForwardRef(IconButton)>
+        opened={true}
+      />
       <div
         className="cell-value"
         style={

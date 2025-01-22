@@ -689,13 +689,13 @@ export const generateArray = (startIndex: number, length: number): number[] => {
  */
 export const getMappingCellsWithColspan = memoizeFunc((cells: ICell[]): IIndexColspanMapping => {
   let startIndex = 0;
-  return cells.reduce(
+  return cells.reduce<IIndexColspanMapping>(
     (result, cell, index) => {
       const colspan = cell.colspan || 1;
       const colspanIndexes = generateArray(startIndex, colspan);
       let isIdentity = true;
       result.indexToColspan[index] = colspanIndexes;
-      colspanIndexes.reduce((colspanToIndex, colspanIndex) => {
+      colspanIndexes.reduce<Record<number, number>>((colspanToIndex, colspanIndex) => {
         colspanToIndex[colspanIndex] = index;
         isIdentity = isIdentity && colspanIndex === index;
         return colspanToIndex;
@@ -939,3 +939,28 @@ export const getVisibleItemIndexes = (
 
   return visibleItemIndexes[scrollIndex];
 };
+
+/**
+ * Returns the index of the first cell (among the first two cells) that has `subItems`.
+ * If neither of them has sub-items, the function returns `-1`.
+ *
+ * This **heuristic** is based on the assumption that only the first or second cell
+ * can contain sub-items. As a result, this check has a constant time complexity (O(1))
+ * because it does not iterate through the entire array of cells.
+ *
+ * @param row - The row object containing a `cells` array.
+ * @returns The index (0 or 1) if the cell contains sub-items, otherwise `-1`.
+ */
+export function getSubRowsCellIndex(row: IRow): number | undefined {
+  // Check the first cell
+  if (row.cells[0]?.subItems?.length) {
+    return 0;
+  }
+
+  // Check the second cell
+  if (row.cells[1]?.subItems?.length) {
+    return 1;
+  }
+
+  return;
+}

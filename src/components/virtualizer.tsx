@@ -154,7 +154,7 @@ class Virtualizer extends React.Component<IVirtualizerProps, IState> {
     hiddenColumns: [],
   };
 
-  private scroller: React.RefObject<Scroller> = React.createRef<Scroller>();
+  private scroller = React.createRef<Scroller>();
 
   private verticalData: VirtualizerCache = {
     itemsCount: 0,

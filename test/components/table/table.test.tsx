@@ -93,7 +93,7 @@ describe("Table component", () => {
       rows: subRows({ subsubRows: subMiam }),
     };
     const wrapper = mount(withThemeProvider(() => <Table {...props} />));
-    const instance: Table = wrapper.find(Table).instance() as Table;
+    const instance: Table = wrapper.find(Table).instance() as unknown as Table;
 
     let expectedState: IState = {
       rowsLength: 2,
@@ -164,7 +164,7 @@ describe("Table component", () => {
     const wrapper = mount(withThemeProvider(() => <Table {...props} />));
     wrapper.setProps({ rows: subRows({ subsubRows: subMiam }) });
 
-    const instance: Table = wrapper.find(Table).instance() as Table;
+    const instance: Table = wrapper.find(Table).instance() as unknown as Table;
     // @ts-ignore private method
     const expectedState: IState = {
       rowsLength: 2,
@@ -189,7 +189,7 @@ describe("Table component", () => {
       rows: subRows({ subsubRows: subMiam }),
     };
     const wrapper = mount(withThemeProvider(() => <Table {...props} />));
-    const instance: Table = wrapper.find(Table).instance() as Table;
+    const instance: Table = wrapper.find(Table).instance() as unknown as Table;
     // tested
     // @ts-ignore private method
     instance.onRowOpen({ rowIndex: 0, columnIndex: 2 });
@@ -216,7 +216,7 @@ describe("Table component", () => {
     const wrapper = mount(
       withThemeProvider(() => <Table {...props} isVirtualized virtualizerProps={{ height: 300, width: 400 }} />)
     );
-    const instance: Table = wrapper.find(Table).instance() as Table;
+    const instance: Table = wrapper.find(Table).instance() as unknown as Table;
 
     // @ts-ignore
     instance.virtualizer.current.scrollToColumnIndex = jest.fn();
@@ -238,7 +238,7 @@ describe("Table component", () => {
     const wrapper = mount(
       withThemeProvider(() => <Table {...props} isVirtualized virtualizerProps={{ height: 300, width: 400 }} />)
     );
-    const instance: Table = wrapper.find(Table).instance() as Table;
+    const instance: Table = wrapper.find(Table).instance() as unknown as Table;
     // @ts-ignore
     instance.virtualizer.current.scrollToRowIndex = jest.fn();
     instance.goToRowIndex(25);
@@ -259,7 +259,7 @@ describe("Table component", () => {
     const wrapper = mount(
       withThemeProvider(() => <Table {...props} isVirtualized virtualizerProps={{ height: 300, width: 400 }} />)
     );
-    const instance: Table = wrapper.find(Table).instance() as Table;
+    const instance: Table = wrapper.find(Table).instance() as unknown as Table;
 
     // @ts-ignore
     instance.virtualizer.current.scrollToColumnIndex = jest.fn();
@@ -278,7 +278,7 @@ describe("Table component", () => {
     const wrapper = mount(
       withThemeProvider(() => <Table {...props} isVirtualized virtualizerProps={{ height: 300, width: 400 }} />)
     );
-    const instance: Table = wrapper.find(Table).instance() as Table;
+    const instance: Table = wrapper.find(Table).instance() as unknown as Table;
 
     expect(instance.getColumnIndex("(0,25)-0")).toEqual(25);
     expect(instance.getColumnIndex("notexist")).toBeFalsy();

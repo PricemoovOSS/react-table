@@ -1,6 +1,6 @@
 {
   "name": "@pricemoov-oss/react-table",
-  "version": "3.3.0",
+  "version": "4.0.0",
   "description": "React components for efficiently rendering large tabular data",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,7 +35,10 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.19.6",
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-react": "^7.26.3",
+    "@babel/preset-typescript": "^7.26.0",
     "@emotion/react": "^11.10.4",
     "@emotion/styled": "^11.10.4",
     "@mui/icons-material": "^5.10.9",
@@ -52,11 +55,11 @@
     "@testing-library/react": "12.1.2",
     "@types/classnames": "^2.3.1",
     "@types/enzyme": "^3.10.12",
-    "@types/jest": "^29.2.0",
+    "@types/jest": "^29.5.14",
     "@types/lodash": "^4.14.186",
     "@types/node": "^18.11.3",
-    "@types/react": "^18.0.21",
-    "@types/react-dom": "^18.0.6",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
     "@types/react-test-renderer": "^18.0.0",
     "@typescript-eslint/eslint-plugin": "^5.40.1",
     "@typescript-eslint/parser": "^5.40.1",
@@ -79,7 +82,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "husky": "~8.0.1",
     "isomorphic-fetch": "^3.0.0",
-    "jest": "^29.2.1",
+    "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.2.1",
     "markdown-loader": "^8.0.0",
     "node-sass": "^7.0.3",
@@ -95,30 +98,30 @@
     "rimraf": "^3.0.2",
     "sass-lint": "~1.13.1",
     "sass-loader": "^13.1.0",
-    "ts-jest": "^29.0.3",
+    "ts-jest": "^29.2.5",
     "ts-loader": "^9.4.1",
     "typescript": "^4.8.4"
   },
   "scripts": {
-    "build": "rimraf dist && tsc --project tsconfig.build.json && npm run build:scss",
+    "build": "rimraf dist && tsc --project tsconfig.build.json && yarn run build:scss",
     "build:scss": "node-sass src/style/index.scss -o dist/style",
-    "prepublish": "npm run build",
-    "test": "npm run test:unit",
+    "prepublish": "yarn build",
+    "test": "yarn run test:unit",
     "test:unit": "jest",
-    "test:watch": "npm run test:unit -- --watch",
+    "test:watch": "yarn run test:unit -- --watch",
     "test:generate-output": "jest --json --outputFile=jest-test-results.json",
-    "precoverage": "npm run pretest && rimraf coverage/",
-    "coverage": "npm run test:unit -- --coverage",
+    "precoverage": "yarn run pretest && rimraf coverage/",
+    "coverage": "yarn run test:unit -- --coverage",
     "pretest": "rimraf tests.entry.js.map test/results.xml",
-    "lint": "npm run lint:eslint && npm run lint:css && npm run lint:prettier",
+    "lint": "yarn run lint:eslint && yarn run lint:css && yarn run lint:prettier",
     "lint:eslint": "eslint --cache --ext .js,.jsx,.ts,.tsx --format=pretty ./",
     "lint:css": "sass-lint --verbose",
     "lint:prettier": "prettier-check \"src/**/*.{css,html,js,json,less,md,mdx,scss,ts,tsx}\"",
-    "format": "npm run format:prettier && npm run format:eslint",
+    "format": "yarn run format:prettier && yarn run format:eslint",
     "format:eslint": "eslint --cache --ext .js,.jsx,.ts,.tsx --fix ./",
     "format:prettier": "prettier --write \"./**/*.{css,html,js,json,less,md,mdx,scss,ts,tsx}\"",
     "storybook:start": "start-storybook -p 9001 -c .storybook",
-    "storybook": "npm run test:generate-output && npm run storybook:start"
+    "storybook": "yarn run test:generate-output && yarn run storybook:start"
   },
   "keywords": [
     "reactjs",
@@ -131,7 +134,10 @@
   "license": "Apache-2.0",
   "husky": {
     "hooks": {
-      "pre-commit": "npm test && npm run lint"
+      "pre-commit": "yarn test && yarn run lint"
     }
+  },
+  "resolutions": {
+    "cheerio": "1.0.0-rc.3"
   }
 }

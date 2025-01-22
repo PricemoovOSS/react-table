@@ -3,7 +3,7 @@ import classNames from "classnames";
 
 import { isEqual } from "lodash";
 import { MouseClickButtons, MAX_ROW_LEVEL } from "../constants";
-import Cell, { ICell, ICellCoordinates } from "./cell";
+import Cell, { ICell, ICellCoordinates, SubRowsToggleButtonComponentProps } from "./cell";
 import RowSpan, { IRowSpan } from "./row-span";
 import { IColumn, IColumnOptions, ITree } from "./elementary-table";
 import {
@@ -17,6 +17,7 @@ import {
   IIndexColspanMapping,
   IElevateds,
   IRelativeIndex,
+  getSubRowsCellIndex,
 } from "../utils/table";
 import { ISelectedCells } from "../table-selection/selection-handler";
 import { ISelectionContext } from "../table-selection/context-menu-handler";
@@ -93,6 +94,18 @@ export interface IRowProps extends IRow {
   onOpen?: (openedTree: ITree) => void;
   /** Callback when we are closing the subItems of the row */
   onClose?: (closedTree: ITree) => void;
+  /**
+   * Optional React component used to render a toggle button
+   * for opening/closing subRows inside the row cells.
+   * defult = DefaultSubRowsToggleButtonComponent
+   */
+  SubRowsToggleButtonComponent?: React.ComponentType<SubRowsToggleButtonComponentProps>;
+  /**
+   * Internal index used to distinguish cells belonging to sub-rows that share
+   * the same order as the root-row cell containing those sub-rows.
+   * If undefined, it means there are no sub-rows.
+   */
+  subRowsCellIndex?: number;
 }
 
 interface IState {
@@ -278,6 +291,8 @@ export default class Row extends React.Component<IRowProps, IState> {
       onCellMouseDown,
       onCellMouseEnter,
       selectedCells,
+      subRowsCellIndex,
+      SubRowsToggleButtonComponent,
     } = this.props;
     const openedCellIndex = openedTree ? openedTree.columnIndex : null;
     const openedCell = openedCellIndex !== null ? cells[openedCellIndex] : null;
@@ -320,6 +335,7 @@ export default class Row extends React.Component<IRowProps, IState> {
             "last-sub-row": subRows.length === subRowIndex + 1,
             [`elevated-${elevation}`]: elevation,
           })}
+          subRowsCellIndex={getSubRowsCellIndex(subRow) ?? subRowsCellIndex}
           style={rowStyle}
           absoluteIndex={rowAbsoluteIndex}
           index={subRowIndex}
@@ -342,6 +358,7 @@ export default class Row extends React.Component<IRowProps, IState> {
           onOpen={this.onSubRowOpen}
           onClose={this.onSubRowClose}
           selectedCells={rowSelectedCells}
+          SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
         />
       );
     });
@@ -372,6 +389,8 @@ export default class Row extends React.Component<IRowProps, IState> {
       selectedCells,
       isSelectable,
       style,
+      SubRowsToggleButtonComponent,
+      subRowsCellIndex,
     } = this.props;
 
     const openedCellIndex = openedTree ? openedTree.columnIndex : null;
@@ -448,6 +467,7 @@ export default class Row extends React.Component<IRowProps, IState> {
                   [`elevated-${elevation}`]: elevation,
                 })}
                 index={cellIndex}
+                isSubCell={subRowsCellIndex == index}
                 rowIndex={absoluteIndex}
                 relativeRowIndex={relativeRowIndex}
                 isSelectable={cellIsSelectable}
@@ -461,6 +481,7 @@ export default class Row extends React.Component<IRowProps, IState> {
                 onMouseEnter={onCellMouseEnter}
                 onMouseUp={onCellMouseUp}
                 onContextMenu={onCellContextMenu}
+                SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
               />
             );
           })}

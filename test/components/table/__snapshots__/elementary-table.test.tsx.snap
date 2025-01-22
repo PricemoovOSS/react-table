@@ -224,6 +224,7 @@ exports[`elementary table component should render a table with custom cell size 
       level={0}
       relativeSubIndexesMapping={{}}
       selectedCells={[]}
+      subRowsCellIndex={0}
       title="foo"
     />
     <Row
@@ -390,6 +391,7 @@ exports[`elementary table component should render a table with custom cell size 
       relativeSubIndexesMapping={{}}
       selectedCells={[]}
       size={150}
+      subRowsCellIndex={1}
     />
   </tbody>
 </table>
@@ -600,6 +602,7 @@ exports[`elementary table component should render the default table 1`] = `
       level={0}
       relativeSubIndexesMapping={{}}
       selectedCells={[]}
+      subRowsCellIndex={0}
       title="foo"
     />
     <Row
@@ -756,6 +759,7 @@ exports[`elementary table component should render the default table 1`] = `
       level={0}
       relativeSubIndexesMapping={{}}
       selectedCells={[]}
+      subRowsCellIndex={1}
     />
   </tbody>
 </table>

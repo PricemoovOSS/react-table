@@ -24,7 +24,7 @@ describe("SelectionHandler component", () => {
       children: jest.fn(),
     };
     const wrapper = mount(<SelectionHandler {...props} />);
-    const instance: SelectionHandler = wrapper.instance() as SelectionHandler;
+    const instance: SelectionHandler = wrapper.instance() as unknown as SelectionHandler;
     // @ts-ignore private functions
     instance.onCellMouseDown(source, MouseClickButtons.right);
     expect(instance.state.selectedCells).toEqual({ 1: [1] });
@@ -43,7 +43,7 @@ describe("SelectionHandler component", () => {
       isDisabledVerticalSelection: true,
     };
     const wrapper = mount(<SelectionHandler {...props} />);
-    const instance: SelectionHandler = wrapper.instance() as SelectionHandler;
+    const instance: SelectionHandler = wrapper.instance() as unknown as SelectionHandler;
     // @ts-ignore private functions
     instance.onCellMouseDown(source, MouseClickButtons.right);
     expect(instance.state.selectedCells).toEqual({ 1: [1] });
@@ -60,7 +60,7 @@ describe("SelectionHandler component", () => {
       isDisabledHorizontalSelection: true,
     };
     const wrapper = mount(<SelectionHandler {...props} />);
-    const instance: SelectionHandler = wrapper.instance() as SelectionHandler;
+    const instance: SelectionHandler = wrapper.instance() as unknown as SelectionHandler;
     // @ts-ignore private functions
     instance.onCellMouseDown(source, MouseClickButtons.right);
     expect(instance.state.selectedCells).toEqual({ 1: [1] });
@@ -77,7 +77,7 @@ describe("SelectionHandler component", () => {
       onContextMenu: jest.fn(),
     };
     const wrapper = mount(<SelectionHandler {...props} />);
-    const instance: SelectionHandler = wrapper.instance() as SelectionHandler;
+    const instance: SelectionHandler = wrapper.instance() as unknown as SelectionHandler;
     // @ts-ignore private functions
     instance.onCellMouseDown(source, MouseClickButtons.right);
     // @ts-ignore private functions

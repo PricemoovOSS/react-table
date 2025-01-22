@@ -272,7 +272,7 @@ describe("Virtualizer", () => {
       cellWidth,
     };
     expect(props.children).toBeCalledWith(values);
-    const instance: Virtualizer = wrapper.instance() as Virtualizer;
+    const instance: Virtualizer = wrapper.instance() as unknown as Virtualizer;
     // scroll to the first row
     let scroll = {
       scrollTop: 100,
@@ -382,7 +382,7 @@ describe("Virtualizer", () => {
       cellWidth,
     };
     expect(props.children).toBeCalledWith(values);
-    const instance: Virtualizer = wrapper.instance() as Virtualizer;
+    const instance: Virtualizer = wrapper.instance() as unknown as Virtualizer;
 
     // scroll to the first column
     let scroll = {
@@ -477,7 +477,7 @@ describe("Virtualizer", () => {
       onScroll: jest.fn(),
     };
     const wrapper = mount(<Virtualizer {...props} />);
-    const instance: Virtualizer = wrapper.instance() as Virtualizer;
+    const instance: Virtualizer = wrapper.instance() as unknown as Virtualizer;
 
     const scroll = {
       scrollOrigin: ScrollOrigin.external,
@@ -553,7 +553,7 @@ describe("Virtualizer", () => {
       onVerticallyScroll: jest.fn(),
     };
     const wrapper = mount(<Virtualizer {...props} />);
-    const instance: Virtualizer = wrapper.instance() as Virtualizer;
+    const instance: Virtualizer = wrapper.instance() as unknown as Virtualizer;
 
     const scroll = {
       scrollOrigin: ScrollOrigin.external,
@@ -697,7 +697,7 @@ describe("Virtualizer", () => {
       children: jest.fn(),
     };
     const wrapper = mount(<Virtualizer {...props} />);
-    const instance: Virtualizer = wrapper.instance() as Virtualizer;
+    const instance: Virtualizer = wrapper.instance() as unknown as Virtualizer;
     // @ts-ignore
     instance.scroller.current.scrollToLeft = jest.fn();
     instance.scrollToColumnIndex(25);
@@ -720,7 +720,7 @@ describe("Virtualizer", () => {
       children: jest.fn(),
     };
     const wrapper = mount(<Virtualizer {...props} />);
-    const instance: Virtualizer = wrapper.instance() as Virtualizer;
+    const instance: Virtualizer = wrapper.instance() as unknown as Virtualizer;
     // @ts-ignore
     instance.scroller.current.scrollToTop = jest.fn();
     instance.scrollToRowIndex(30);

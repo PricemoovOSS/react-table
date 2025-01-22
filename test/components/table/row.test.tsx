@@ -63,7 +63,7 @@ describe("Row component", () => {
     const RowComponent = ({ openedTree }: { openedTree?: ITree }) =>
       withThemeProvider(() => <Row {...props} openedTree={openedTree} />);
     const wrapper = mount(<RowComponent />);
-    const instance: Row = wrapper.find(Row).instance() as Row;
+    const instance: Row = wrapper.find(Row).instance() as unknown as Row;
     // @ts-ignore private method
     instance.toggleFirstCell();
     expect(props.onOpen).toBeCalledWith({ rowIndex: 0, columnIndex: 2 });
@@ -85,7 +85,7 @@ describe("Row component", () => {
     const RowComponent = ({ openedTree }: { openedTree?: ITree }) =>
       withThemeProvider(() => <Row {...props} openedTree={openedTree} />);
     const wrapper = mount(<RowComponent />);
-    const instance: Row = wrapper.find(Row).instance() as Row;
+    const instance: Row = wrapper.find(Row).instance() as unknown as Row;
     // @ts-ignore private method
     instance.toggleCell(2);
     expect(props.onOpen).toBeCalledWith({ rowIndex: 0, columnIndex: 2 });
@@ -110,7 +110,7 @@ describe("Row component", () => {
     const RowComponent = ({ openedTree }: { openedTree?: ITree }) =>
       withThemeProvider(() => <Row {...props} openedTree={openedTree} />);
     const wrapper = mount(<RowComponent />);
-    const instance: Row = wrapper.find(Row).instance() as Row;
+    const instance: Row = wrapper.find(Row).instance() as unknown as Row;
     wrapper.setProps({ openedTree: { rowIndex: 0, columnIndex: 2 } });
     // @ts-ignore private method
     instance.onSubRowOpen({ rowIndex: 0, columnIndex: 2 });
@@ -136,7 +136,7 @@ describe("Row component", () => {
     const RowComponent = ({ openedTree }: { openedTree?: ITree }) =>
       withThemeProvider(() => <Row {...props} openedTree={openedTree} />);
     const wrapper = mount(<RowComponent />);
-    const instance: Row = wrapper.find(Row).instance() as Row;
+    const instance: Row = wrapper.find(Row).instance() as unknown as Row;
     wrapper.setProps({
       openedTree: {
         rowIndex: 0,

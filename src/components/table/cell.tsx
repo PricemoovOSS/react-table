@@ -32,6 +32,18 @@ export interface IContentCellProps<IDataCoordinates = any> {
 
 type CellTag = "td" | "th";
 
+export interface SubRowsToggleButtonComponentProps {
+  /**
+   * Indicates whether sub-rows are currently open (expanded).
+   */
+  opened?: boolean;
+  /**
+   * Handler called when the toggle button is clicked.
+   * Receives the standard MouseEvent for HTML button elements.
+   */
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
+}
+
 export interface ICell<IDataCoordinates = any> {
   id: string;
   /** The CSS class name of the cell. */
@@ -83,9 +95,28 @@ export interface ICellProps extends ICell {
   onMouseUp?: () => void;
   /** Callback when we try to open the context menu */
   onContextMenu?: (selectionContext: ISelectionContext) => void;
+  /**
+   * Optional React component used to render a toggle button
+   * for opening/closing subRows inside this cell.
+   * defult = DefaultSubRowsToggleButtonComponent
+   */
+  SubRowsToggleButtonComponent?: React.ComponentType<SubRowsToggleButtonComponentProps>;
+  /**
+   * Indicates whether this cell is part of a sub-row
+   * (i.e., a child row or nested row within another).
+   */
+  isSubCell?: boolean;
 }
 
 const defaultCellComponent = "td";
+
+const DefaultSubRowsToggleButtonComponent = ({ opened, onClick }: SubRowsToggleButtonComponentProps) => {
+  return (
+    <IconButton className="table-cell-sub-item-toggle" data-testid="table-cell-sub-item-toggle" onClick={onClick} size="large">
+      <Icon>{opened ? "arrow_drop_down" : "arrow_right"}</Icon>
+    </IconButton>
+  );
+};
 
 export default class Cell extends React.Component<ICellProps> {
   static defaultProps = {
@@ -95,6 +126,7 @@ export default class Cell extends React.Component<ICellProps> {
     isSelectable: true,
     component: defaultCellComponent,
     colspan: DEFAULT_COLSPAN,
+    SubRowsToggleButtonComponent: DefaultSubRowsToggleButtonComponent,
   };
 
   private container = React.createRef<HTMLDivElement>();
@@ -195,6 +227,8 @@ export default class Cell extends React.Component<ICellProps> {
       colspan,
       isSelectable,
       isSelected,
+      isSubCell,
+      SubRowsToggleButtonComponent = DefaultSubRowsToggleButtonComponent,
     } = this.props;
     const canToggleSubItems = !hideSubItemsOpener && subItems && subItems.length > 0;
     const justifyContent = style && style.justifyContent;
@@ -208,6 +242,7 @@ export default class Cell extends React.Component<ICellProps> {
         data-testid="table-column"
         className={classNames("table-column", dynamicClassName, {
           selected: isSelected && isSelectable,
+          "table-sub-cell": isSubCell,
         })}
         onMouseDown={this.onMouseDown}
         onMouseEnter={this.onMouseEnter}
@@ -222,17 +257,13 @@ export default class Cell extends React.Component<ICellProps> {
           className="table-overflow-wrapper"
           style={styles.wrapper}
         >
-          <div className="table-cell-container" style={{ justifyContent }}>
-            {canToggleSubItems ? (
-              <IconButton
-                className="table-cell-sub-item-toggle"
-                data-testid="table-cell-sub-item-toggle"
-                onClick={this.open}
-                size="large"
-              >
-                <Icon>{opened ? "keyboard_arrow_down" : "keyboard_arrow_right"}</Icon>
-              </IconButton>
-            ) : null}
+          <div
+            className={classNames("table-cell-container", {
+              "table-cell-container__with-toggle": canToggleSubItems,
+            })}
+            style={{ justifyContent }}
+          >
+            {canToggleSubItems ? <SubRowsToggleButtonComponent onClick={this.open} opened={opened} /> : null}
             {CellContent ? (
               <CellContent
                 key={`cell-${id}-cellContent`}

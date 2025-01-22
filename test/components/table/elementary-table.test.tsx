@@ -59,7 +59,7 @@ describe("elementary table component", () => {
       visibleRowIndexes: [0, 1, 2, 3, 4],
     };
     const wrapper = mount(withThemeProvider(() => <ElementaryTable {...props} />));
-    const instance: ElementaryTable = wrapper.find(ElementaryTable).instance() as ElementaryTable;
+    const instance: ElementaryTable = wrapper.find(ElementaryTable).instance() as unknown as ElementaryTable;
     expect(instance.getRowTreeLength(0)).toEqual(0);
     expect(instance.getRowTreeLength(1)).toEqual(2);
     expect(instance.getRowTreeLength(2)).toEqual(0);
@@ -77,7 +77,7 @@ describe("elementary table component", () => {
       visibleRowIndexes: [0, 1, 2, 3], // the third row is hidden
     };
     const wrapper = mount(withThemeProvider(() => <ElementaryTable {...props} />));
-    const instance: ElementaryTable = wrapper.find(ElementaryTable).instance() as ElementaryTable;
+    const instance: ElementaryTable = wrapper.find(ElementaryTable).instance() as unknown as ElementaryTable;
     // @ts-ignore subItems is defined
     const secondLevel = props.rows[1].cells[0].subItems;
     // first level
