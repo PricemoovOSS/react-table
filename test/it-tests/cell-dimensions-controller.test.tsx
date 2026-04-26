@@ -1,5 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
-
 import { fireEvent, getByTestId as globalGetByTestId, getByText as globalGetByText, waitFor } from "@testing-library/react";
 
 import CellDimensionController from "../../src/components/table-interactions-manager/cell-dimensions-controller";
@@ -20,7 +18,7 @@ describe("CellDimensionController component", () => {
     const { getByTestId, getByText } = customRender(
       <TabeInteractionManager>
         <CellDimensionController buttonRenderer={(toggleMenu) => <div onClick={toggleMenu}>Dimension Controller</div>} />
-      </TabeInteractionManager>
+      </TabeInteractionManager>,
     );
     fireEvent.click(getByText("Dimension Controller"));
 
@@ -81,7 +79,7 @@ describe("CellDimensionController component", () => {
             );
           }}
         </TableInteractionsContext.Consumer>
-      </TabeInteractionManager>
+      </TabeInteractionManager>,
     );
 
     // The initial scroll (week number 12)

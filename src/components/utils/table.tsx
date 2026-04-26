@@ -233,13 +233,13 @@ export const getElevatedIndexes = (
   ignoredIndexes: Record<number, true> = {},
   itemSizes: Record<number, number> = {},
   defaultSize: number,
-  usePrevIndexForLastElevation?: boolean
+  usePrevIndexForLastElevation?: boolean,
 ): IElevateds => {
   const isLimit = (item1: number, item2: number) => {
     return item1 !== undefined && !ignoredIndexes[item1] && (item2 === undefined || ignoredIndexes[item2]);
   };
   const absoluteFixed: number[] = [];
-  const elevations = visibleItemIndexes.reduce((result, itemIndex, index) => {
+  const elevations = visibleItemIndexes.reduce<Record<number, ElevationType>>((result, itemIndex, index) => {
     const isFixed = ignoredIndexes[itemIndex];
     if (isFixed) {
       const nextItem = visibleItemIndexes[index + 1];
@@ -293,7 +293,7 @@ export const filterRowsByIndexes = (
   absoluteIndexes: Nullable<number[]>,
   absoluteIndexesMap: IAbsoluteIndexesMap,
   rootIndex: Nullable<number>,
-  fixedRowsIndexes: number[] = []
+  fixedRowsIndexes: number[] = [],
 ): [Nullable<number[]>, IRow[]] => {
   if (absoluteIndexes) {
     let onlyFixed = fixedRowsIndexes.length > 0;
@@ -327,7 +327,10 @@ export const filterRowsByIndexes = (
 };
 
 export const getTreesLength = (trees: ITrees, rows: IRow[]): number => {
-  return Object.keys(trees).reduce((currentSum, rowIndex) => currentSum + getTreeLength(trees[rowIndex], rows), 0);
+  return Object.keys(trees).reduce<number>(
+    (currentSum, rowIndex) => currentSum + getTreeLength(trees[Number(rowIndex)], rows),
+    0,
+  );
 };
 
 export const getTreeLength = (tree: ITree, rows: IRow[]): number => {
@@ -346,7 +349,7 @@ export const getIndexesMap = (trees: ITrees = {}, rowIndex: number, rows: IRow[]
   const result: IIndexesMap = { absolute: {}, relative: {} };
   const treesBeforeIndex = Object.keys(trees).reduce<ITrees>((result, treeRowIndex) => {
     if (parseInt(treeRowIndex) < rowIndex) {
-      result[treeRowIndex] = trees[treeRowIndex];
+      result[Number(treeRowIndex)] = trees[Number(treeRowIndex)];
     }
     return result;
   }, {});
@@ -389,7 +392,7 @@ export const getRootIndex = (absoluteIndex: number, root: Nullable<number>, abso
 export const getRowTreeLength = (
   rowAbsoluteIndex: number,
   absoluteIndexes: number[],
-  absoluteIndexesMap: IAbsoluteIndexesMap
+  absoluteIndexesMap: IAbsoluteIndexesMap,
 ): number => {
   return absoluteIndexes.filter((absoluteIndex) => getRootIndex(absoluteIndex, rowAbsoluteIndex, absoluteIndexesMap) > -1).length;
 };
@@ -402,12 +405,16 @@ export const getRowTreeLength = (
  * @param {number} endIndex the second number.
  * @return {number} An object that's representing the indexes from the start index to the end index
  */
-export const filterIndexes = (indexes: IIndexes, startIndex: number, endIndex: number) => {
-  const result = {};
+export const filterIndexes = <T extends Record<string | number, unknown>>(
+  indexes: T,
+  startIndex: number,
+  endIndex: number,
+): T => {
+  const result = {} as T;
   for (let index = startIndex; index <= endIndex; index += 1) {
-    const value = indexes[index];
+    const value = (indexes as Record<number, unknown>)[index];
     if (value) {
-      result[index] = value;
+      (result as Record<number, unknown>)[index] = value;
     }
   }
   return result;
@@ -443,7 +450,7 @@ export interface CustomSizesElements {
 export const getItemsCustomSizes = (
   elements: Record<number, IColumn | IRowProps> = {},
   fixedElements?: number[],
-  hiddenIndexes: number[] = []
+  hiddenIndexes: number[] = [],
 ): CustomSizesElements => {
   const keys = Object.keys(elements);
   const customSizesElements: CustomSizesElements = {
@@ -458,12 +465,13 @@ export const getItemsCustomSizes = (
     customSizes: {},
   };
   keys.forEach((key) => {
-    const element = elements[key];
+    const idx = Number(key);
+    const element = elements[idx];
     const size = element && element.size;
-    if (!hiddenIndexes.includes(Number(key)) && size) {
-      const isFixed = fixedElements?.includes(Number(key));
+    if (!hiddenIndexes.includes(idx) && size) {
+      const isFixed = fixedElements?.includes(idx);
       const items = isFixed ? customSizesElements.fixed : customSizesElements.scrollable;
-      customSizesElements.customSizes[key] = size;
+      customSizesElements.customSizes[idx] = size;
       items.sum += size;
       items.count += 1;
     }
@@ -501,18 +509,19 @@ export const relativeToAbsoluteIndexes = (relativeIndexes: number[] = [], relati
  */
 export const relativeToAbsoluteObject = (
   relativeObject: Record<string, number> = {},
-  relativeMap: IRelativeIndexesMap
+  relativeMap: IRelativeIndexesMap,
 ): Record<string, number> => {
   return Object.keys(relativeObject).reduce<Record<string, number>>((absoluteIndexes, relativeIndex) => {
-    if (relativeMap[relativeIndex]) {
-      absoluteIndexes[relativeMap[relativeIndex].index] = relativeObject[relativeIndex];
+    const idx = Number(relativeIndex);
+    if (relativeMap[idx]) {
+      absoluteIndexes[relativeMap[idx].index] = relativeObject[relativeIndex];
     }
     return absoluteIndexes;
   }, {});
 };
 
 export const getIndexesIdsMapping = (items: INode[]): IIndexesIdsMapping => {
-  return items.reduce((result, item, index) => {
+  return items.reduce<IIndexesIdsMapping>((result, item, index) => {
     result[item.id] = index;
     return result;
   }, {});
@@ -531,7 +540,7 @@ const getRootsRowsIndexes = (rowIndex: number, absoluteIndexesMap: IAbsoluteInde
 export const getCellPath = (
   cellCoordinates: ICellCoordinates,
   absoluteIndexesMap: IAbsoluteIndexesMap,
-  openedTrees: ITrees = {}
+  openedTrees: ITrees = {},
 ): ICellPath => {
   if (!openedTrees || isEmptyObj(openedTrees)) {
     return [cellCoordinates];
@@ -615,32 +624,40 @@ export const generateArray = (startIndex: number, length: number): number[] => {
  * indexToColspan: {0: [0, 1], 1: [2]}
  * colspanToIndex: {0: 0, 1: 0, 2: 1}
  * }
+ *
+ * Cached per-cells-array via WeakMap so multiple rows that point to the same `cells`
+ * array hit the cache (vs. `memoize-one` which only remembers the last call and thrashes
+ * when alternating between two row signatures).
  */
-export const getMappingCellsWithColspan = memoizeFunc((cells: ICell[]): IIndexColspanMapping => {
+const colspanMappingCache = new WeakMap<ICell[], IIndexColspanMapping>();
+export const getMappingCellsWithColspan = (cells: ICell[]): IIndexColspanMapping => {
+  const cached = colspanMappingCache.get(cells);
+  if (cached) return cached;
   let startIndex = 0;
-  return cells.reduce(
-    (result, cell, index) => {
+  const result = cells.reduce<IIndexColspanMapping>(
+    (acc, cell, index) => {
       const colspan = cell.colspan || 1;
       const colspanIndexes = generateArray(startIndex, colspan);
       let isIdentity = true;
-      result.indexToColspan[index] = colspanIndexes;
-      colspanIndexes.reduce((colspanToIndex, colspanIndex) => {
+      acc.indexToColspan[index] = colspanIndexes;
+      colspanIndexes.reduce<IColspanToIndexMapping>((colspanToIndex, colspanIndex) => {
         colspanToIndex[colspanIndex] = index;
         isIdentity = isIdentity && colspanIndex === index;
         return colspanToIndex;
-      }, result.colspanToIndex);
+      }, acc.colspanToIndex);
       startIndex += colspan;
-      // @ts-ignore  Type 'boolean' is not assignable to type 'true' (only for tests)
-      result.isIdentity = result.isIdentity && isIdentity;
-      return result;
+      acc.isIdentity = (acc.isIdentity && isIdentity) as true;
+      return acc;
     },
     {
       isIdentity: true,
       indexToColspan: {},
       colspanToIndex: {},
-    }
+    },
   );
-});
+  colspanMappingCache.set(cells, result);
+  return result;
+};
 
 /**
  * example :
@@ -653,11 +670,11 @@ export const getMappingCellsWithColspan = memoizeFunc((cells: ICell[]): IIndexCo
  */
 export const getColspanValues = (
   indexes: number[],
-  colspanToIndexMapping: IColspanToIndexMapping
+  colspanToIndexMapping: IColspanToIndexMapping,
 ): [Nullable<number[]>, Nullable<IColspanIndexWithValue>] => {
   const colspanIndexes = new Set<number>();
   if (indexes) {
-    const colspanIndexWithValue = indexes.reduce((result, index) => {
+    const colspanIndexWithValue = indexes.reduce<IColspanIndexWithValue>((result, index) => {
       const currentIndex = colspanToIndexMapping[index];
       if (currentIndex !== undefined) {
         const colspanValue = result[currentIndex] || 0;
@@ -703,7 +720,7 @@ export const getDenseColumns = memoizeFunc(
     }
     return denseColumns;
   },
-  (args: any, newArgs: any) => shallowEqual(args, newArgs)
+  (args: any, newArgs: any) => shallowEqual(args, newArgs),
 );
 
 const scrollDivStyle = "width: 1337px; height: 1337px; position: absolute; left: -9999px; overflow: scroll;";
@@ -738,7 +755,7 @@ export const getIndexScrollMapping = (
   itemsLength: number,
   itemsSizes: Record<number, number> = {},
   defaultItemSize: number,
-  hiddenItems: number[]
+  hiddenItems: number[],
 ): number[] => {
   const result: number[] = [0];
   for (let i = 1; i < itemsLength; i++) {
@@ -846,7 +863,7 @@ export const getVisibleItemIndexes = (
     ignoredIndexes,
     scrollableItemsSize = 0,
     itemSize,
-  }: VirtualizerCache
+  }: VirtualizerCache,
 ): number[] => {
   const scrollIndex = interpolationSearch(itemIndexesScrollMapping, scrollValue);
 

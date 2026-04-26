@@ -1,22 +1,17 @@
 import * as React from "react";
-import { isEqual } from "lodash";
-import ElementaryTable, { IElementaryTable, IColumnOptions, ITree, IColumns, ITrees } from "./elementary-table";
-import { IRowOptions } from "./row";
+
+import ElementaryTable, { IElementaryTable, ITree, IColumns, ITrees } from "./elementary-table";
 import ResponsiveContainer, { IResponsiveContainerOptionalProps } from "../responsive-container";
-import Virtualizer, { IVirtualizerOptionalProps } from "../virtualizer";
+import Virtualizer, { IVirtualizerHandle, IVirtualizerOptionalProps } from "../virtualizer";
 import {
   getTreesLength,
   getAllIndexesMap,
-  IIndexesMap,
   getItemsCustomSizes,
   relativeToAbsoluteIndexes,
   getIndexesIdsMapping,
-  IIndexesIdsMapping,
   getColumnsLength,
   getCellPath,
   getCell,
-  IRelativeIndexesMap,
-  IElevateds,
   getDenseColumns,
   CustomSizesElements,
   relativeToAbsoluteObject,
@@ -24,378 +19,344 @@ import {
 import SelectionHandler, { ISelection, ISelectionHandlerOptionalProps } from "../table-selection/selection-handler";
 import { ROW_SPAN_WIDTH } from "../constants";
 import { ICell, ICellCoordinates } from "./cell";
-import shallowEqual from "../utils/shallowEqual";
+import { useGridKeyboardNavigation } from "../../hooks/useGridKeyboardNavigation";
 
-interface IVirtualizerProps extends Partial<IVirtualizerOptionalProps> {
-  /**  The width of the visible window. To specify if not responsive */
+export interface IVirtualizerNumericProps extends Partial<IVirtualizerOptionalProps> {
   width?: number;
-  /**  The height of the visible window. To specify if not responsive */
   height?: number;
 }
 
-/**
- * We will be using something as close as possible to the original table,
- * with separated abstractions in this component
- * */
 export interface ITableProps<IDataCoordinates = any> extends IElementaryTable<IDataCoordinates> {
-  responsiveContainerProps: IResponsiveContainerOptionalProps;
-  virtualizerProps: IVirtualizerProps;
-  /** A list of branches to initialize opened rows and sub rows */
-  initialOpenedTrees: ITrees;
+  responsiveContainerProps?: IResponsiveContainerOptionalProps;
+  virtualizerProps?: IVirtualizerNumericProps;
+  initialOpenedTrees?: ITrees;
   selectionProps?: ISelectionHandlerOptionalProps;
   isSelectable?: boolean;
   isVirtualized?: boolean;
   onOpenedTreesUpdate?: (openedTrees: ITrees) => void;
+  /**
+   * Disable the built-in keyboard navigation. Default: navigation is **enabled**:
+   * the grid wrapper takes Tab focus and arrow keys / Home / End / PageUp / PageDown
+   * move the active cell. Cells are programmatically focusable; off-window cells are
+   * scrolled into view automatically.
+   */
+  disableKeyboardNavigation?: boolean;
+  /** Number of rows to step on PageUp/PageDown when keyboard navigation is enabled. */
+  keyboardPageSize?: number;
+  /**
+   * Accessible name announced by screen readers when focus enters the grid.
+   * Defaults to no label (the surrounding heading is usually enough). Use this when
+   * the grid lives inside a custom container with no associated heading.
+   */
+  ariaLabel?: string;
+  /** Id of the element that labels the grid (`aria-labelledby`). Mutually exclusive with `ariaLabel`. */
+  ariaLabelledBy?: string;
 }
 
-export interface IState {
-  rowsLength: number;
-  indexesMapping: IIndexesMap;
-  columnsIndexesIdsMapping: IIndexesIdsMapping;
-  openedTrees: ITrees;
-  fixedRowsIndexes: number[];
+export interface ITableHandle<IDataCoordinates = any> {
+  openTrees: (trees: ITrees) => void;
+  closeTrees: (trees: ITrees) => void;
+  goToColumnIndex: (columnIndex: number) => void;
+  goToRowIndex: (rowIndex: number) => void;
+  goToColumnId: (columnId: string) => void;
+  getColumnIndex: (columnId: string) => number | undefined;
+  getColumnId: (columnIndex: number) => string | undefined;
+  getCell: (cellCoordinates: ICellCoordinates) => ICell<IDataCoordinates>;
+  /** Returns the currently opened trees (read-only snapshot). */
+  getOpenedTrees: () => ITrees;
 }
 
-class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoordinates>, IState> {
-  static defaultProps = {
-    isSelectable: true,
-    isVirtualized: false,
-    virtualizerProps: {},
-    responsiveContainerProps: {},
-    initialOpenedTrees: {},
-  };
+const EMPTY_CUSTOM_SIZES: CustomSizesElements = {
+  fixed: { sum: 0, count: 0 },
+  scrollable: { sum: 0, count: 0 },
+  customSizes: {},
+};
 
-  private globalRowProps?: IRowOptions;
+function TableInner<IDataCoordinates = any>(
+  props: ITableProps<IDataCoordinates>,
+  forwardedRef: React.ForwardedRef<ITableHandle<IDataCoordinates>>,
+): JSX.Element {
+  const {
+    isSelectable = true,
+    isVirtualized = false,
+    virtualizerProps = {},
+    responsiveContainerProps = {},
+    initialOpenedTrees = {},
+    selectionProps,
+    rows,
+    columns,
+    rowsProps,
+    isSpan,
+    globalRowProps,
+    globalColumnProps,
+    onOpenedTreesUpdate,
+    disableKeyboardNavigation = false,
+    keyboardPageSize = 10,
+    ariaLabel,
+    ariaLabelledBy,
+    ...elementaryProps
+  } = props;
+  const { fixedRows, fixedColumns, hiddenRows, hiddenColumns, ...otherVirtualizerProps } = virtualizerProps;
 
-  private globalColumnProps?: IColumnOptions;
+  const virtualizerRef = React.useRef<IVirtualizerHandle>(null);
 
-  private customCellsHeight: CustomSizesElements = {
-    fixed: {
-      sum: 0,
-      count: 0,
-    },
-    scrollable: {
-      sum: 0,
-      count: 0,
-    },
-    customSizes: {},
-  };
+  const [openedTrees, setOpenedTrees] = React.useState<ITrees>(initialOpenedTrees);
 
-  private customCellsWidth: CustomSizesElements = {
-    fixed: {
-      sum: 0,
-      count: 0,
-    },
-    scrollable: {
-      sum: 0,
-      count: 0,
-    },
-    customSizes: {},
-  };
+  const columnsLength = React.useMemo(() => getColumnsLength(rows), [rows]);
 
-  private virtualizer: React.RefObject<Virtualizer> = React.createRef<Virtualizer>();
+  const indexesMapping = React.useMemo(() => getAllIndexesMap(openedTrees, rows), [openedTrees, rows]);
 
-  private columnsLength = 0;
+  const rowsLength = React.useMemo(() => {
+    const base = rows?.length ?? 0;
+    return base + (openedTrees ? getTreesLength(openedTrees, rows) : 0);
+  }, [rows, openedTrees]);
 
-  public constructor(props: ITableProps<IDataCoordinates>) {
-    super(props);
-    const {
-      initialOpenedTrees,
-      rows,
-      columns,
-      rowsProps,
-      isVirtualized,
-      virtualizerProps: { fixedRows, fixedColumns, hiddenRows, hiddenColumns },
-    } = this.props;
-    this.columnsLength = getColumnsLength(rows);
-    const indexesMapping = getAllIndexesMap(initialOpenedTrees, rows);
-    this.state = {
-      indexesMapping,
-      openedTrees: initialOpenedTrees,
-      rowsLength: this.getRowslength(initialOpenedTrees),
-      columnsIndexesIdsMapping: rows[0] ? getIndexesIdsMapping(rows[0].cells) : {},
-      fixedRowsIndexes: this.getFixedRowsIndexes(initialOpenedTrees, indexesMapping.relative),
-    };
-    if (isVirtualized) {
-      this.customCellsHeight = getItemsCustomSizes(rowsProps, fixedRows, hiddenRows);
-      this.customCellsWidth = getItemsCustomSizes(columns, fixedColumns, hiddenColumns);
-    }
-  }
+  const columnsIndexesIdsMapping = React.useMemo(() => (rows[0] ? getIndexesIdsMapping(rows[0].cells) : {}), [rows]);
 
-  public shouldComponentUpdate(nextProps: ITableProps<IDataCoordinates>, nextState: IState) {
-    const { virtualizerProps, initialOpenedTrees, ...otherProps } = this.props;
-    const { virtualizerProps: nextVirtualizerProps, initialOpenedTrees: nextInitialOpenedTrees, ...nextOtherProps } = nextProps;
-    const { initialScroll, ...otherVirtualizerProps } = virtualizerProps;
-    const { initialScroll: nextInitialScroll, ...nextOtherVirtualizerProps } = nextVirtualizerProps;
-    return (
-      !shallowEqual(this.state, nextState) ||
-      !shallowEqual(otherProps, nextOtherProps) ||
-      !shallowEqual(otherVirtualizerProps, nextOtherVirtualizerProps)
-    );
-  }
-
-  public componentDidUpdate(prevProps: ITableProps<IDataCoordinates>) {
-    const {
-      rows,
-      columns,
-      rowsProps,
-      isVirtualized,
-      virtualizerProps,
-      virtualizerProps: { fixedColumns, hiddenColumns, fixedRows, hiddenRows },
-    } = this.props;
-    const { openedTrees, indexesMapping } = this.state;
-
-    if (isVirtualized) {
-      if (columns !== prevProps.columns) {
-        this.customCellsWidth = getItemsCustomSizes(columns, fixedColumns, hiddenColumns);
-      }
-      if (rowsProps !== prevProps.rowsProps) {
-        this.customCellsHeight = getItemsCustomSizes(rowsProps, fixedRows, hiddenRows);
-      }
-    }
-
-    if (prevProps.rows !== rows) {
-      this.columnsLength = getColumnsLength(rows);
-      const newIndexesMapping = getAllIndexesMap(openedTrees, rows);
-      this.setState({
-        indexesMapping: newIndexesMapping,
-        rowsLength: this.getRowslength(openedTrees),
-        columnsIndexesIdsMapping: rows[0] ? getIndexesIdsMapping(rows[0].cells) : {},
-        fixedRowsIndexes: this.getFixedRowsIndexes(openedTrees, newIndexesMapping.relative),
-      });
-    } else if (!isEqual(prevProps.virtualizerProps?.fixedRows, virtualizerProps?.fixedRows)) {
-      this.setState({
-        fixedRowsIndexes: this.getFixedRowsIndexes(openedTrees, indexesMapping.relative),
-      });
-    }
-  }
-
-  private getFixedRowsIndexes = (openedTrees: ITrees, relativeIndexesMapping: IRelativeIndexesMap) => {
-    const {
-      rows,
-      virtualizerProps: { fixedRows },
-    } = this.props;
-    const newfixedRowsIndexes = (fixedRows && relativeToAbsoluteIndexes(fixedRows, relativeIndexesMapping)) || [];
+  const fixedRowsIndexes = React.useMemo(() => {
+    const newFixedAbsolute = (fixedRows && relativeToAbsoluteIndexes(fixedRows, indexesMapping.relative)) || [];
     return Object.keys(openedTrees).reduce<number[]>((result, rowIndex) => {
-      const { fixSubRows } = rows[rowIndex];
-      if (fixSubRows) {
-        const { subItems } = relativeIndexesMapping[rowIndex];
-        const rowSubItems = subItems || {};
-        result.push(...Object.keys(rowSubItems).map((subItem) => rowSubItems[subItem].index));
-      }
+      const row = rows[Number(rowIndex)];
+      if (!row?.fixSubRows) return result;
+      const relMapping = indexesMapping.relative[Number(rowIndex)];
+      const subItems = relMapping?.subItems || {};
+      Object.keys(subItems).forEach((subKey) => {
+        result.push(subItems[Number(subKey)].index);
+      });
       return result;
-    }, newfixedRowsIndexes);
-  };
+    }, newFixedAbsolute);
+  }, [fixedRows, indexesMapping.relative, openedTrees, rows]);
 
-  private getColumnsProps = (cellWidth: number) => {
-    const { globalColumnProps } = this.props;
-    const newGlobalColumnProps = { ...globalColumnProps, size: cellWidth };
-    if (!isEqual(this.globalColumnProps, newGlobalColumnProps)) {
-      this.globalColumnProps = newGlobalColumnProps;
-    }
-    return this.globalColumnProps;
-  };
+  const customCellsHeight = React.useMemo(
+    () => (isVirtualized ? getItemsCustomSizes(rowsProps, fixedRows, hiddenRows) : EMPTY_CUSTOM_SIZES),
+    [isVirtualized, rowsProps, fixedRows, hiddenRows],
+  );
 
-  private getRowsProps = (cellHeight: number) => {
-    const { globalRowProps } = this.props;
-    const newGlobalRowProps = { ...globalRowProps, size: cellHeight };
-    if (!isEqual(this.globalRowProps, newGlobalRowProps)) {
-      this.globalRowProps = newGlobalRowProps;
-    }
-    return this.globalRowProps;
-  };
+  const customCellsWidth = React.useMemo(
+    () => (isVirtualized ? getItemsCustomSizes(columns, fixedColumns, hiddenColumns) : EMPTY_CUSTOM_SIZES),
+    [isVirtualized, columns, fixedColumns, hiddenColumns],
+  );
 
-  private getRowslength = (openedTrees: ITrees): number => {
-    const { rows } = this.props;
-    let rowsLength = (rows && rows.length) || 0;
-    rowsLength += openedTrees ? getTreesLength(openedTrees, rows) : 0;
-    return rowsLength;
-  };
+  // Memoize the absolute-keyed view of customCellsHeight so the Virtualizer's `useMemo`
+  // for the cache stays hit when only unrelated props change.
+  const customCellsHeightAbsolute = React.useMemo(
+    () => ({
+      ...customCellsHeight,
+      customSizes: relativeToAbsoluteObject(customCellsHeight.customSizes, indexesMapping.relative),
+    }),
+    [customCellsHeight, indexesMapping.relative],
+  );
 
-  private updateRowsLength = (openedTrees: ITrees) => {
-    const { rows, onOpenedTreesUpdate } = this.props;
-    const newIndexesMapping = getAllIndexesMap(openedTrees, rows);
-    const newRowsLength = this.getRowslength(openedTrees);
+  const hiddenRowsAbsolute = React.useMemo(
+    () => (hiddenRows ? relativeToAbsoluteIndexes(hiddenRows, indexesMapping.relative) : undefined),
+    [hiddenRows, indexesMapping.relative],
+  );
 
-    this.setState(
-      {
-        indexesMapping: newIndexesMapping,
-        openedTrees,
-        rowsLength: newRowsLength,
-        fixedRowsIndexes: this.getFixedRowsIndexes(openedTrees, newIndexesMapping.relative),
-      },
-      () => {
-        if (onOpenedTreesUpdate) {
-          onOpenedTreesUpdate(openedTrees);
-        }
-      }
-    );
-  };
+  const handleRowOpen = React.useCallback(
+    (openedTree: ITree) => {
+      setOpenedTrees((prev) => {
+        const next = { ...prev, [openedTree.rowIndex]: openedTree };
+        onOpenedTreesUpdate?.(next);
+        return next;
+      });
+    },
+    [onOpenedTreesUpdate],
+  );
 
-  private onRowOpen = (openedTree: ITree) => {
-    const { openedTrees } = this.state;
-    const currentOpenedTrees = openedTrees || {};
-    const newOpenedTrees = { ...currentOpenedTrees };
-    // update the sub-tree to close
-    newOpenedTrees[openedTree.rowIndex] = openedTree;
-    this.updateRowsLength(newOpenedTrees);
-  };
+  const handleRowClose = React.useCallback(
+    (closedTree: ITree) => {
+      setOpenedTrees((prev) => {
+        if (!(closedTree.rowIndex in prev)) return prev;
+        const next = { ...prev };
+        delete next[closedTree.rowIndex];
+        onOpenedTreesUpdate?.(next);
+        return next;
+      });
+    },
+    [onOpenedTreesUpdate],
+  );
 
-  private onRowClose = (closedTree: ITree) => {
-    const { openedTrees } = this.state;
-    const currentOpenedTrees = openedTrees || {};
-    const newOpenedTrees = { ...currentOpenedTrees };
-    // remove the sub-tree to close
-    delete newOpenedTrees[closedTree.rowIndex];
-    if (Object.keys(newOpenedTrees).length !== Object.keys(openedTrees).length) {
-      this.updateRowsLength(newOpenedTrees);
-    }
-  };
+  const openTrees = React.useCallback(
+    (trees: ITrees) => {
+      setOpenedTrees((prev) => {
+        const next = { ...prev, ...trees };
+        onOpenedTreesUpdate?.(next);
+        return next;
+      });
+    },
+    [onOpenedTreesUpdate],
+  );
 
-  public openTrees = (trees: ITrees) => {
-    const { openedTrees } = this.state;
-    const currentOpenedTrees = openedTrees || {};
-    const newOpenedTrees = { ...currentOpenedTrees, ...trees };
-    this.updateRowsLength(newOpenedTrees);
-  };
+  const closeTrees = React.useCallback(
+    (trees: ITrees) => {
+      setOpenedTrees((prev) => {
+        const next = { ...prev };
+        Object.keys(trees).forEach((id) => delete next[Number(id)]);
+        onOpenedTreesUpdate?.(next);
+        return next;
+      });
+    },
+    [onOpenedTreesUpdate],
+  );
 
-  public closeTrees = (trees: ITrees) => {
-    const { openedTrees } = this.state;
-    const currentOpenedTrees = openedTrees || {};
-    const newOpenedTrees = { ...currentOpenedTrees };
-    Object.keys(trees).forEach((rowId) => {
-      delete newOpenedTrees[rowId];
-    });
-    this.updateRowsLength(newOpenedTrees);
-  };
+  const goToColumnIndex = React.useCallback(
+    (columnIndex: number) => {
+      const target = Math.max(Math.min(columnIndex, columnsLength - 1), 0);
+      virtualizerRef.current?.scrollToColumnIndex(target);
+    },
+    [columnsLength],
+  );
 
-  public goToColumnIndex = (columnIndex: number) => {
-    if (this.virtualizer.current) {
-      const toColumnIndex = Math.max(Math.min(columnIndex, this.columnsLength - 1), 0);
-      this.virtualizer.current.scrollToColumnIndex(toColumnIndex);
-    }
-  };
+  const goToRowIndex = React.useCallback(
+    (rowIndex: number) => {
+      const target = Math.max(Math.min(rowIndex, rowsLength - 1), 0);
+      virtualizerRef.current?.scrollToRowIndex(target);
+    },
+    [rowsLength],
+  );
 
-  public goToRowIndex = (rowIndex: number) => {
-    if (this.virtualizer.current) {
-      const { rowsLength } = this.state;
-      const toRowIndex = Math.max(Math.min(rowIndex, rowsLength - 1), 0);
-      this.virtualizer.current.scrollToRowIndex(toRowIndex);
-    }
-  };
+  const getColumnIndex = React.useCallback((columnId: string) => columnsIndexesIdsMapping[columnId], [columnsIndexesIdsMapping]);
 
-  public goToColumnId = (columnId: string) => {
-    if (this.virtualizer) {
-      const columnIndex = this.getColumnIndex(columnId);
-      if (columnIndex !== undefined) {
-        this.goToColumnIndex(columnIndex);
-      }
-    }
-  };
+  const goToColumnId = React.useCallback(
+    (columnId: string) => {
+      const idx = getColumnIndex(columnId);
+      if (idx !== undefined) goToColumnIndex(idx);
+    },
+    [getColumnIndex, goToColumnIndex],
+  );
 
-  public getColumnIndex = (columnId: string) => {
-    const { columnsIndexesIdsMapping } = this.state;
-    return columnsIndexesIdsMapping[columnId];
-  };
+  const getColumnId = React.useCallback(
+    (columnIndex: number) => {
+      const header = rows[0]?.cells;
+      return header && header[columnIndex] ? header[columnIndex].id : undefined;
+    },
+    [rows],
+  );
 
-  public getColumnId = (columnIndex: number) => {
-    const { rows } = this.props;
-    const header = rows[0] && rows[0].cells;
-    const cell = header && header[columnIndex];
-    return cell && cell.id;
-  };
+  const getCellByCoordinates = React.useCallback(
+    (cellCoordinates: ICellCoordinates): ICell<IDataCoordinates> => {
+      const cellPath = getCellPath(cellCoordinates, indexesMapping.absolute, openedTrees);
+      return getCell(rows, cellPath);
+    },
+    [rows, indexesMapping.absolute, openedTrees],
+  );
 
-  public getCell = (cellCoordinates: ICellCoordinates): ICell<IDataCoordinates> => {
-    const { rows } = this.props;
-    const { indexesMapping, openedTrees } = this.state;
-    const cellPath = getCellPath(cellCoordinates, indexesMapping.absolute, openedTrees);
-    return getCell(rows, cellPath);
-  };
+  const openedTreesRef = React.useRef(openedTrees);
+  openedTreesRef.current = openedTrees;
+  const getOpenedTrees = React.useCallback(() => openedTreesRef.current, []);
 
-  private renderTable = (
-    visibleColumnIndexes?: number[],
-    visibleRowIndexes?: number[],
-    cellHeight?: number,
-    cellWidth?: number,
-    elevatedColumnIndexes?: IElevateds,
-    elevatedRowIndexes?: IElevateds,
-    fixedRowsIndexes?: number[],
-    columns?: IColumns
-  ) => {
-    const {
+  React.useImperativeHandle(
+    forwardedRef,
+    () => ({
+      openTrees,
+      closeTrees,
+      goToColumnIndex,
+      goToRowIndex,
+      goToColumnId,
+      getColumnIndex,
+      getColumnId,
+      getCell: getCellByCoordinates,
+      getOpenedTrees,
+    }),
+    [
+      openTrees,
+      closeTrees,
+      goToColumnIndex,
+      goToRowIndex,
+      goToColumnId,
+      getColumnIndex,
+      getColumnId,
+      getCellByCoordinates,
+      getOpenedTrees,
+    ],
+  );
+
+  const renderTable = React.useCallback(
+    (
+      visibleColumnIndexes?: number[],
+      visibleRowIndexes?: number[],
+      cellHeight?: number,
+      cellWidth?: number,
+      elevatedColumnIndexes?: IElementaryTable["elevatedColumnIndexes"],
+      elevatedRowIndexes?: IElementaryTable["elevatedRowIndexes"],
+      fixedRowsIdx?: number[],
+      adjustedColumns?: IColumns,
+    ): JSX.Element => {
+      const renderElementaryTable = (selection: ISelection = { selectedCells: {} }) => (
+        <ElementaryTable
+          {...elementaryProps}
+          {...selection}
+          rows={rows}
+          isSpan={isSpan}
+          columns={adjustedColumns ?? columns}
+          visibleColumnIndexes={visibleColumnIndexes ?? elementaryProps.visibleColumnIndexes}
+          visibleRowIndexes={visibleRowIndexes ?? elementaryProps.visibleRowIndexes}
+          fixedRowsIndexes={fixedRowsIdx}
+          globalRowProps={cellHeight ? { ...globalRowProps, size: cellHeight } : globalRowProps}
+          globalColumnProps={cellWidth ? { ...globalColumnProps, size: cellWidth } : globalColumnProps}
+          elevatedColumnIndexes={elevatedColumnIndexes ?? elementaryProps.elevatedColumnIndexes}
+          elevatedRowIndexes={elevatedRowIndexes ?? elementaryProps.elevatedRowIndexes}
+          rowsProps={rowsProps}
+          onRowOpen={handleRowOpen}
+          onRowClose={handleRowClose}
+          indexesMapping={indexesMapping}
+          openedTrees={openedTrees}
+          totalRowCount={rowsLength}
+          totalColumnCount={columnsLength}
+          multiSelectable={isSelectable}
+        />
+      );
+      return isSelectable ? (
+        <SelectionHandler {...selectionProps}>{renderElementaryTable as (props: ISelection) => JSX.Element}</SelectionHandler>
+      ) : (
+        renderElementaryTable()
+      );
+    },
+    [
+      elementaryProps,
+      rows,
+      columns,
+      isSpan,
       globalRowProps,
       globalColumnProps,
+      handleRowOpen,
+      handleRowClose,
+      indexesMapping,
+      openedTrees,
       isSelectable,
       selectionProps,
-      responsiveContainerProps,
-      virtualizerProps,
-      isVirtualized,
-      initialOpenedTrees,
-      ...tableProps
-    } = this.props;
-    const { indexesMapping, openedTrees } = this.state;
-    const renderElementaryTable = (selection: ISelection = { selectedCells: {} }): JSX.Element => (
-      <ElementaryTable
-        {...tableProps}
-        {...selection}
-        columns={columns || tableProps.columns}
-        visibleColumnIndexes={visibleColumnIndexes || tableProps.visibleColumnIndexes}
-        visibleRowIndexes={visibleRowIndexes || tableProps.visibleRowIndexes}
-        fixedRowsIndexes={fixedRowsIndexes}
-        globalRowProps={cellHeight ? this.getRowsProps(cellHeight) : globalRowProps}
-        globalColumnProps={cellWidth ? this.getColumnsProps(cellWidth) : globalColumnProps}
-        elevatedColumnIndexes={elevatedColumnIndexes || tableProps.elevatedColumnIndexes}
-        elevatedRowIndexes={elevatedRowIndexes || tableProps.elevatedRowIndexes}
-        onRowOpen={this.onRowOpen}
-        onRowClose={this.onRowClose}
-        indexesMapping={indexesMapping}
-        openedTrees={openedTrees}
-      />
-    );
-    return isSelectable ? (
-      <SelectionHandler {...selectionProps}>{renderElementaryTable}</SelectionHandler>
-    ) : (
-      renderElementaryTable()
-    );
-  };
+      rowsProps,
+      rowsLength,
+      columnsLength,
+    ],
+  );
 
-  private renderVirtualizedTable = (height: number, width: number) => {
-    const {
-      isSpan,
-      virtualizerProps,
-      virtualizerProps: { hiddenRows },
-      columns,
-    } = this.props;
-    const { rowsLength, indexesMapping, fixedRowsIndexes } = this.state;
-
-    return (
+  const renderVirtualizedTable = React.useCallback(
+    (height: number, width: number): JSX.Element => (
       <Virtualizer
-        ref={this.virtualizer}
-        {...virtualizerProps}
+        ref={virtualizerRef}
+        {...otherVirtualizerProps}
         fixedRows={fixedRowsIndexes}
-        columnsLength={this.columnsLength}
-        hiddenRows={hiddenRows && relativeToAbsoluteIndexes(hiddenRows, indexesMapping.relative)}
+        fixedColumns={fixedColumns}
+        hiddenColumns={hiddenColumns}
+        columnsLength={columnsLength}
+        hiddenRows={hiddenRowsAbsolute}
         rowsLength={rowsLength}
         width={width}
         height={height}
-        customCellsHeight={{
-          ...this.customCellsHeight,
-          customSizes: relativeToAbsoluteObject(this.customCellsHeight.customSizes, indexesMapping.relative),
-        }}
-        customCellsWidth={this.customCellsWidth}
+        customCellsHeight={customCellsHeightAbsolute}
+        customCellsWidth={customCellsWidth}
         verticalPadding={isSpan ? ROW_SPAN_WIDTH : 0}
       >
         {({ visibleColumnIndexes, visibleRowIndexes, elevatedColumnIndexes, elevatedRowIndexes, cellHeight, cellWidth }) => {
           const tableWidth =
-            this.customCellsWidth.fixed.sum +
-            this.customCellsWidth.scrollable.sum +
-            (visibleColumnIndexes.length - this.customCellsWidth.fixed.count - this.customCellsWidth.scrollable.count) *
-              cellWidth;
-          const adjustedColumns = !virtualizerProps.fixedColumns?.includes(visibleColumnIndexes[visibleColumnIndexes.length - 1])
-            ? getDenseColumns(tableWidth, width, this.columnsLength, columns)
+            customCellsWidth.fixed.sum +
+            customCellsWidth.scrollable.sum +
+            (visibleColumnIndexes.length - customCellsWidth.fixed.count - customCellsWidth.scrollable.count) * cellWidth;
+          const adjustedColumns = !fixedColumns?.includes(visibleColumnIndexes[visibleColumnIndexes.length - 1])
+            ? getDenseColumns(tableWidth, width, columnsLength, columns)
             : columns;
-
-          return this.renderTable(
+          return renderTable(
             visibleColumnIndexes,
             visibleRowIndexes,
             cellHeight,
@@ -403,39 +364,72 @@ class Table<IDataCoordinates = any> extends React.Component<ITableProps<IDataCoo
             elevatedColumnIndexes,
             elevatedRowIndexes,
             fixedRowsIndexes,
-            adjustedColumns
+            adjustedColumns,
           );
         }}
       </Virtualizer>
-    );
-  };
+    ),
+    [
+      otherVirtualizerProps,
+      fixedColumns,
+      hiddenColumns,
+      hiddenRowsAbsolute,
+      fixedRowsIndexes,
+      columnsLength,
+      rowsLength,
+      customCellsHeightAbsolute,
+      customCellsWidth,
+      isSpan,
+      columns,
+      renderTable,
+    ],
+  );
 
-  private renderResponsiveTable = () => {
-    const {
-      responsiveContainerProps: { className },
-    } = this.props;
-    return (
-      <ResponsiveContainer className={className}>
-        {({ width, height }) => {
-          return this.renderVirtualizedTable(height, width);
-        }}
-      </ResponsiveContainer>
-    );
-  };
+  // Keyboard navigation: wrap the rendered table in a focusable container that delegates
+  // focus to the active cell on Tab-in and handles arrow / Home / End / PageUp/Down keys.
+  const gridContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollToCell = React.useCallback((rowIndex: number, columnIndex: number) => {
+    virtualizerRef.current?.scrollToRowIndex(rowIndex);
+    virtualizerRef.current?.scrollToColumnIndex(columnIndex);
+  }, []);
+  const { containerProps: keyboardContainerProps } = useGridKeyboardNavigation(gridContainerRef, {
+    totalRows: rowsLength,
+    totalColumns: columnsLength,
+    pageSize: keyboardPageSize,
+    hiddenRows: hiddenRowsAbsolute,
+    hiddenColumns,
+    scrollToCell: isVirtualized ? scrollToCell : undefined,
+    disabled: disableKeyboardNavigation,
+  });
 
-  public render() {
-    const {
-      virtualizerProps: { height, width },
-      isVirtualized,
-    } = this.props;
-    if (isVirtualized) {
-      if (height && width) {
-        return this.renderVirtualizedTable(height, width);
-      }
-      return this.renderResponsiveTable();
+  const wrap = (rendered: JSX.Element) => (
+    <div
+      ref={gridContainerRef}
+      className="grid-keyboard-wrapper"
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+      {...(disableKeyboardNavigation ? {} : keyboardContainerProps)}
+    >
+      {rendered}
+    </div>
+  );
+
+  if (isVirtualized) {
+    if (virtualizerProps.height && virtualizerProps.width) {
+      return wrap(renderVirtualizedTable(virtualizerProps.height, virtualizerProps.width));
     }
-    return this.renderTable();
+    return wrap(
+      <ResponsiveContainer className={responsiveContainerProps.className}>
+        {({ width, height }) => renderVirtualizedTable(height, width)}
+      </ResponsiveContainer>,
+    );
   }
+
+  return wrap(renderTable());
 }
+
+const Table = React.forwardRef(TableInner) as <IDataCoordinates = any>(
+  props: ITableProps<IDataCoordinates> & { ref?: React.ForwardedRef<ITableHandle<IDataCoordinates>> },
+) => JSX.Element;
 
 export default Table;

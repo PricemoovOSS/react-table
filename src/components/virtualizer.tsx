@@ -1,20 +1,8 @@
-// / <reference lib="es2017.string" />
 import * as React from "react";
-import { isEqual } from "lodash";
 
-import Scroller, { IOnScroll, VERTICAL_SCROLL_DIRECTIONS, HORIZONTAL_SCROLL_DIRECTIONS, SCROLLBAR_SIZE } from "./scroller";
-import {
-  getVisibleIndexesInsideDatalength,
-  IElevateds,
-  findFirstNotIncluded,
-  CustomSizesElements,
-  VirtualizerCache,
-  getVirtualizerCache,
-  getVisibleItemIndexes,
-  getElevatedIndexes,
-  getIndexScrollMapping,
-} from "./utils/table";
-import { DEFAULT_ROW_HEIGHT, MIN_COLUMN_WIDTH } from "./constants";
+import Scroller, { IOnScroll, IScrollerHandle, SCROLLBAR_SIZE } from "./scroller";
+import { CustomSizesElements, IElevateds } from "./utils/table";
+import { useVirtualizer, getScrollAxes, bindScrollerToVirtualizer, IUseVirtualizerProps } from "../hooks/useVirtualizer";
 import { Nullable } from "./typing";
 
 export interface IRowsState {
@@ -45,10 +33,10 @@ export interface OnHorizontallyScrollProps {
 
 export interface OnScrollProps extends OnVerticallyScrollProps, OnHorizontallyScrollProps {}
 
-interface IChildrenProps extends IRowsState, IColumnState {
-  /**  The height of the cell of the grid */
+export interface IVirtualizerChildrenProps extends IRowsState, IColumnState {
+  /** The height of one cell of the grid */
   cellHeight: number;
-  /**  The width of the cell of the grid */
+  /** The width of one cell of the grid */
   cellWidth: number;
 }
 
@@ -73,374 +61,218 @@ export interface IVirtualizerOptionalProps {
   verticalPadding: number;
   /** A pre-defined horizontal padding of the grid */
   horizontalPadding: number;
-  /** The scroll handler */
+  /** Generic scroll handler. Called for both axes. */
   onScroll?: (props: OnScrollProps) => void;
-  /** The vertically scroll handler */
+  /** Vertical-only scroll handler */
   onVerticallyScroll?: (props: OnVerticallyScrollProps) => void;
-  /** The horizontally scroll handler */
+  /** Horizontal-only scroll handler */
   onHorizontallyScroll?: (props: OnHorizontallyScrollProps) => void;
-  /** Initial scroll postions */
+  /** Initial scroll positions */
   initialScroll: {
     columnIndex?: number;
     rowIndex?: number;
   };
-  /** Specifies indexes of the columns to be shown */
+  /** Indexes of the columns to be hidden */
   hiddenColumns: number[];
-  /** Specifies indexes of the rows to be shown */
+  /** Indexes of the rows to be hidden */
   hiddenRows: number[];
 }
 
-export interface IVirtualizerProps extends IVirtualizerOptionalProps {
-  /**  The width of the visible window */
+export interface IVirtualizerProps extends Partial<IVirtualizerOptionalProps> {
+  /** Visible viewport width */
   width: number;
-  /**  The height of the visible window */
+  /** Visible viewport height */
   height: number;
-  /** Number of columns of the child element */
+  /** Total number of columns */
   columnsLength: number;
-  /** Number of rows of the child element */
+  /** Total number of rows */
   rowsLength: number;
-  /** Children to display inside the virtualizer */
-  children: (props: IChildrenProps) => JSX.Element;
+  /** Render-prop receiving the visible window descriptor */
+  children: (props: IVirtualizerChildrenProps) => JSX.Element;
 }
 
-interface IState extends IRowsState, IColumnState {}
+export interface IVirtualizerHandle {
+  scrollToColumnIndex: (columnIndex: number) => boolean;
+  scrollToRowIndex: (rowIndex: number) => boolean;
+}
 
-class Virtualizer extends React.Component<IVirtualizerProps, IState> {
-  public static defaultProps = {
-    fixedColumns: [],
-    fixedRows: [],
-    customCellsHeight: {
-      fixed: {
-        sum: 0,
-        count: 0,
-      },
-      scrollable: {
-        sum: 0,
-        count: 0,
-      },
-      customSizes: {},
-    },
-    customCellsWidth: {
-      fixed: {
-        sum: 0,
-        count: 0,
-      },
-      scrollable: {
-        sum: 0,
-        count: 0,
-      },
-      customSizes: {},
-    },
-    horizontalPadding: 0,
-    verticalPadding: 0,
-    initialScroll: {},
-    hiddenRows: [],
-    hiddenColumns: [],
-  };
+const EMPTY_CUSTOM_SIZES: CustomSizesElements = {
+  fixed: { sum: 0, count: 0 },
+  scrollable: { sum: 0, count: 0 },
+  customSizes: {},
+};
 
-  private scroller: React.RefObject<Scroller> = React.createRef<Scroller>();
+const Virtualizer = React.forwardRef<IVirtualizerHandle, IVirtualizerProps>(function Virtualizer(props, ref) {
+  const {
+    width,
+    height,
+    rowsLength,
+    columnsLength,
+    fixedColumns = [],
+    fixedRows = [],
+    hiddenColumns = [],
+    hiddenRows = [],
+    rowsCount,
+    columnsCount,
+    minColumnWidth,
+    minRowHeight,
+    customCellsHeight = EMPTY_CUSTOM_SIZES,
+    customCellsWidth = EMPTY_CUSTOM_SIZES,
+    horizontalPadding = 0,
+    verticalPadding = 0,
+    initialScroll = {},
+    onScroll,
+    onHorizontallyScroll,
+    onVerticallyScroll,
+    children,
+  } = props;
 
-  private verticalData: VirtualizerCache = {
-    itemsCount: 0,
-    itemSize: 0,
-    visibleFixedItems: [],
-    virtualSize: 0,
-    itemIndexesScrollMapping: [],
-    visibleItemIndexes: {},
-    ignoredIndexes: {},
-    scrollableCustomSize: 0,
-  };
-
-  private horizontalData: VirtualizerCache = {
-    itemsCount: 0,
-    itemSize: 0,
-    visibleFixedItems: [],
-    virtualSize: 0,
-    itemIndexesScrollMapping: [],
-    visibleItemIndexes: {},
-    ignoredIndexes: {},
-    scrollableCustomSize: 0,
-  };
-
-  public constructor(props: IVirtualizerProps) {
-    super(props);
-    this.initializeGridProps();
-    const visibleColumnIndexes = this.getVisibleColumnIndexes();
-    const visibleRowIndexes = this.getVisibleRowIndexes();
-    this.state = {
-      visibleRowIndexes,
-      visibleColumnIndexes,
-      elevatedColumnIndexes: this.getElevatedColumnIndexes(visibleColumnIndexes),
-      elevatedRowIndexes: this.getElevatedRowIndexes(visibleRowIndexes),
-    };
-  }
-
-  public componentDidMount() {
-    const {
-      initialScroll: { columnIndex, rowIndex },
-    } = this.props;
-    if (columnIndex && columnIndex >= 0) {
-      this.scrollToColumnIndex(columnIndex);
-    }
-    if (rowIndex && rowIndex >= 0) {
-      this.scrollToRowIndex(rowIndex);
-    }
-  }
-
-  public componentDidUpdate(prevProps: IVirtualizerProps) {
-    const {
-      height,
+  const virtualizerProps: IUseVirtualizerProps = React.useMemo(
+    () => ({
       width,
-      rowsCount,
-      columnsCount,
+      height,
+      rowsLength,
+      columnsLength,
       fixedRows,
       fixedColumns,
-      columnsLength,
-      rowsLength,
-      hiddenColumns,
       hiddenRows,
-      minColumnWidth,
-      minRowHeight,
-      customCellsWidth,
-      customCellsHeight,
-    } = this.props;
-
-    if (
-      this.scroller.current &&
-      // TODO shallowEqual
-      (prevProps.rowsLength !== rowsLength ||
-        prevProps.columnsLength !== columnsLength ||
-        prevProps.height !== height ||
-        prevProps.width !== width ||
-        prevProps.minColumnWidth !== minColumnWidth ||
-        prevProps.minRowHeight !== minRowHeight ||
-        prevProps.rowsCount !== rowsCount ||
-        prevProps.columnsCount !== columnsCount ||
-        prevProps.customCellsWidth !== customCellsWidth ||
-        prevProps.customCellsHeight !== customCellsHeight ||
-        !isEqual(prevProps.fixedRows, fixedRows) ||
-        !isEqual(prevProps.fixedColumns, fixedColumns) ||
-        !isEqual(prevProps.hiddenColumns, hiddenColumns) ||
-        // TODO we need to scroll to keep the first unfixed row visible
-        !isEqual(prevProps.hiddenRows, hiddenRows))
-    ) {
-      const { scrollTop, scrollLeft } = this.scroller.current.getScrollValues();
-      this.initializeGridProps();
-      const newColumnsState = this.getVisibleColumnsState(scrollLeft) || {};
-      const newRowsState = this.getVisibleRowsState(scrollTop) || {};
-      this.setState({ ...newRowsState, ...newColumnsState });
-    }
-  }
-
-  private initializeGridProps = () => {
-    const {
-      height,
-      width,
+      hiddenColumns,
       rowsCount,
       columnsCount,
-      columnsLength,
-      rowsLength,
       minRowHeight,
       minColumnWidth,
       customCellsHeight,
       customCellsWidth,
-      horizontalPadding,
       verticalPadding,
-      fixedColumns,
-      hiddenColumns,
-      fixedRows,
-      hiddenRows,
-    } = this.props;
-    const minCellHeight = minRowHeight || DEFAULT_ROW_HEIGHT;
-    const minCellWidth = minColumnWidth || MIN_COLUMN_WIDTH;
-    const setverticalData = (padding: number) => {
-      this.verticalData = getVirtualizerCache({
-        minItemSize: minCellHeight,
-        fixedItems: fixedRows,
-        padding,
-        hiddenItems: hiddenRows,
-        customSizesElements: customCellsHeight,
-        containerSize: height,
-        itemsLength: rowsLength,
-        itemsCount: rowsCount,
-      });
-    };
-
-    const sethorizontalData = (padding: number) => {
-      this.horizontalData = getVirtualizerCache({
-        minItemSize: minCellWidth,
-        fixedItems: fixedColumns,
-        padding,
-        hiddenItems: hiddenColumns,
-        customSizesElements: customCellsWidth,
-        containerSize: width,
-        itemsLength: columnsLength,
-        itemsCount: columnsCount,
-      });
-    };
-
-    setverticalData(horizontalPadding);
-
-    const horizontalScrollBarSize =
-      this.verticalData.virtualSize > (this.verticalData.scrollableItemsSize || 0) ? SCROLLBAR_SIZE : 0;
-    sethorizontalData(verticalPadding + horizontalScrollBarSize);
-
-    const verticalScrollBarSize =
-      this.horizontalData.virtualSize > (this.horizontalData.scrollableItemsSize || 0) ? SCROLLBAR_SIZE : 0;
-    setverticalData(verticalScrollBarSize + horizontalPadding);
-
-    // Returns the distance (in pixels) between the different items
-    this.verticalData.itemIndexesScrollMapping = getIndexScrollMapping(
+      horizontalPadding,
+      scrollbarSize: SCROLLBAR_SIZE,
+    }),
+    [
+      width,
+      height,
       rowsLength,
-      customCellsHeight.customSizes,
-      this.verticalData.itemSize,
-      [...this.verticalData.visibleFixedItems, ...hiddenRows]
-    );
-    // Returns the distance (in pixels) between the different items
-    this.horizontalData.itemIndexesScrollMapping = getIndexScrollMapping(
       columnsLength,
-      customCellsWidth.customSizes,
-      this.horizontalData.itemSize,
-      [...this.horizontalData.visibleFixedItems, ...hiddenColumns]
+      fixedRows,
+      fixedColumns,
+      hiddenRows,
+      hiddenColumns,
+      rowsCount,
+      columnsCount,
+      minRowHeight,
+      minColumnWidth,
+      customCellsHeight,
+      customCellsWidth,
+      verticalPadding,
+      horizontalPadding,
+    ],
+  );
+
+  const virtualizer = useVirtualizer(virtualizerProps);
+  const scrollerRef = React.useRef<IScrollerHandle>(null);
+
+  const { getScrollLeftForColumnIndex, getScrollTopForRowIndex } = virtualizer;
+  const handlers = React.useMemo(
+    () => bindScrollerToVirtualizer(scrollerRef, getScrollLeftForColumnIndex, getScrollTopForRowIndex),
+    [getScrollLeftForColumnIndex, getScrollTopForRowIndex],
+  );
+
+  React.useImperativeHandle(ref, () => handlers, [handlers]);
+
+  // Apply initial scroll once on mount.
+  const initialScrollAppliedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (initialScrollAppliedRef.current) return;
+    initialScrollAppliedRef.current = true;
+    const { columnIndex, rowIndex } = initialScroll;
+    if (columnIndex != null && columnIndex >= 0) handlers.scrollToColumnIndex(columnIndex);
+    if (rowIndex != null && rowIndex >= 0) handlers.scrollToRowIndex(rowIndex);
+  }, [handlers, initialScroll]);
+
+  // Coalesce scroll events with rAF: trackpads can emit 100+ events/sec, but the visible
+  // window changes at most once per frame. We keep only the latest scroll position and
+  // process it on the next animation frame. We use two refs: a boolean for the "is a flush
+  // pending" check (resilient to a synchronous rAF polyfill), and the rAF id for cancellation.
+  const rafPendingRef = React.useRef(false);
+  const rafIdRef = React.useRef<number | undefined>(undefined);
+  const latestScrollRef = React.useRef<IOnScroll | undefined>(undefined);
+
+  const flushScroll = React.useCallback(() => {
+    rafPendingRef.current = false;
+    rafIdRef.current = undefined;
+    const scrollValues = latestScrollRef.current;
+    if (!scrollValues) return;
+    latestScrollRef.current = undefined;
+
+    const axes = getScrollAxes(scrollValues);
+    const newRowsState = axes.vertical ? virtualizer.computeRowsState(scrollValues.scrollTop) : null;
+    const newColumnsState = axes.horizontal ? virtualizer.computeColumnsState(scrollValues.scrollLeft) : null;
+
+    if (!onScroll && !onVerticallyScroll && !onHorizontallyScroll) return;
+
+    const cursors = virtualizer.getCursors(
+      newRowsState ?? {
+        visibleRowIndexes: virtualizer.visibleRowIndexes,
+        elevatedRowIndexes: virtualizer.elevatedRowIndexes,
+      },
+      newColumnsState ?? {
+        visibleColumnIndexes: virtualizer.visibleColumnIndexes,
+        elevatedColumnIndexes: virtualizer.elevatedColumnIndexes,
+      },
     );
-  };
 
-  private getVisibleRowIndexes = (scrollValue = 0) => {
-    const { rowsLength, customCellsHeight } = this.props;
-    const currentCache = this.verticalData;
-    return getVisibleItemIndexes(scrollValue, rowsLength, customCellsHeight.customSizes, currentCache);
-  };
+    onScroll?.({
+      scrollValues,
+      newRowsState,
+      newColumnsState,
+      rowsCursor: cursors.rowsCursor,
+      columnsCursor: cursors.columnsCursor,
+    });
+    onVerticallyScroll?.({ scrollValues, newRowsState, rowsCursor: cursors.rowsCursor });
+    onHorizontallyScroll?.({ scrollValues, newColumnsState, columnsCursor: cursors.columnsCursor });
+  }, [virtualizer, onScroll, onHorizontallyScroll, onVerticallyScroll]);
 
-  private getVisibleColumnIndexes = (scrollValue = 0) => {
-    const { columnsLength, customCellsWidth } = this.props;
-    const currentCache = this.horizontalData;
-    return getVisibleItemIndexes(scrollValue, columnsLength, customCellsWidth.customSizes, currentCache);
-  };
+  const handleScroll = React.useCallback(
+    (scrollValues: IOnScroll) => {
+      latestScrollRef.current = scrollValues;
+      if (rafPendingRef.current) return;
+      rafPendingRef.current = true;
+      rafIdRef.current = requestAnimationFrame(flushScroll);
+    },
+    [flushScroll],
+  );
 
-  private getElevatedColumnIndexes = (visibleColumnIndexes: number[]): IElevateds => {
-    const { customCellsWidth } = this.props;
-    const { ignoredIndexes, itemSize } = this.horizontalData;
-    return getElevatedIndexes(visibleColumnIndexes, ignoredIndexes, customCellsWidth.customSizes, itemSize, true);
-  };
-
-  private getElevatedRowIndexes = (visibleRowIndexes: number[]): IElevateds => {
-    const { customCellsHeight } = this.props;
-    const { ignoredIndexes, itemSize } = this.verticalData;
-    return getElevatedIndexes(visibleRowIndexes, ignoredIndexes, customCellsHeight.customSizes, itemSize);
-  };
-
-  private getVisibleRowsState = (scrollTop = 0): IRowsState | null => {
-    const { visibleRowIndexes } = this.state;
-    const newVisibleRowIndexes = this.getVisibleRowIndexes(scrollTop);
-    let rowState = null;
-    if (!isEqual(newVisibleRowIndexes, visibleRowIndexes)) {
-      rowState = {
-        visibleRowIndexes: newVisibleRowIndexes,
-        elevatedRowIndexes: this.getElevatedRowIndexes(newVisibleRowIndexes),
-      };
-    }
-    return rowState;
-  };
-
-  private getVisibleColumnsState = (scrollLeft = 0): IColumnState | null => {
-    const { visibleColumnIndexes } = this.state;
-    const newVisibleColumnIndexes = this.getVisibleColumnIndexes(scrollLeft);
-    let columnState = null;
-    if (!isEqual(newVisibleColumnIndexes, visibleColumnIndexes)) {
-      columnState = {
-        visibleColumnIndexes: newVisibleColumnIndexes,
-        elevatedColumnIndexes: this.getElevatedColumnIndexes(newVisibleColumnIndexes),
-      };
-    }
-    return columnState;
-  };
-
-  private onScroll = (scrollValues: IOnScroll) => {
-    const { scrollTop, scrollLeft, directions } = scrollValues;
-    const { onScroll, onHorizontallyScroll, onVerticallyScroll } = this.props;
-
-    /**
-     * If it is a vertical scroll, we only update the visible rows,
-     * otherwise we update the visible columns
-     * */
-    const hasVerticallyScrolled = VERTICAL_SCROLL_DIRECTIONS.some((direction) => directions.includes(direction));
-    const hasHorizontalyScrolled = HORIZONTAL_SCROLL_DIRECTIONS.some((direction) => directions.includes(direction));
-
-    const newRowsState = hasVerticallyScrolled ? this.getVisibleRowsState(scrollTop) : null;
-    const newColumnsState = hasHorizontalyScrolled ? this.getVisibleColumnsState(scrollLeft) : null;
-
-    const handleOnScroll = (): void => {
-      if (onScroll || onHorizontallyScroll || onVerticallyScroll) {
-        const { visibleColumnIndexes, visibleRowIndexes } = this.state;
-        const columnsCursor = findFirstNotIncluded(visibleColumnIndexes, this.horizontalData.visibleFixedItems);
-        const rowsCursor = findFirstNotIncluded(visibleRowIndexes, this.verticalData.visibleFixedItems);
-
-        if (onScroll) {
-          onScroll({
-            scrollValues,
-            newColumnsState,
-            newRowsState,
-            columnsCursor,
-            rowsCursor,
-          });
-        }
-        if (onHorizontallyScroll) {
-          onHorizontallyScroll({
-            scrollValues,
-            newColumnsState,
-            columnsCursor,
-          });
-        }
-        if (onVerticallyScroll) {
-          onVerticallyScroll({ scrollValues, newRowsState, rowsCursor });
-        }
+  // Cancel any pending rAF on unmount.
+  React.useEffect(
+    () => () => {
+      if (rafIdRef.current != null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = undefined;
       }
-    };
+    },
+    [],
+  );
 
-    if (newRowsState || newColumnsState) {
-      // @ts-ignore
-      this.setState({ ...newRowsState, ...newColumnsState }, handleOnScroll);
-    } else {
-      handleOnScroll();
-    }
-  };
-
-  public scrollToColumnIndex = (columnIndex: number): boolean => {
-    const toLeft = this.horizontalData.itemIndexesScrollMapping[columnIndex] + 1;
-    return this.scroller.current && toLeft != null ? this.scroller.current.scrollToLeft(toLeft) : false;
-  };
-
-  public scrollToRowIndex = (rowIndex: number): boolean => {
-    const toTop = this.verticalData.itemIndexesScrollMapping[rowIndex] + 1;
-    return this.scroller.current && toTop != null ? this.scroller.current.scrollToTop(toTop) : false;
-  };
-
-  public render() {
-    const { children, columnsLength, rowsLength, hiddenColumns, width, height } = this.props;
-    const { elevatedColumnIndexes, elevatedRowIndexes, visibleColumnIndexes, visibleRowIndexes } = this.state;
-
-    return (
-      <Scroller
-        ref={this.scroller}
-        width={width}
-        height={height}
-        virtualWidth={this.horizontalData.virtualSize + (this.horizontalData.scrollableCustomSize || 0)}
-        virtualHeight={this.verticalData.virtualSize + (this.verticalData.scrollableCustomSize || 0)}
-        onScroll={this.onScroll}
-        horizontalPartWidth={this.horizontalData.itemSize}
-        ignoredHorizontalParts={hiddenColumns}
-      >
-        {children({
-          visibleColumnIndexes: getVisibleIndexesInsideDatalength(columnsLength, visibleColumnIndexes),
-          visibleRowIndexes: getVisibleIndexesInsideDatalength(rowsLength, visibleRowIndexes),
-          elevatedColumnIndexes,
-          elevatedRowIndexes,
-          cellHeight: this.verticalData.itemSize,
-          cellWidth: this.horizontalData.itemSize,
-        })}
-      </Scroller>
-    );
-  }
-}
+  return (
+    <Scroller
+      ref={scrollerRef}
+      width={width}
+      height={height}
+      virtualWidth={virtualizer.virtualWidth}
+      virtualHeight={virtualizer.virtualHeight}
+      onScroll={handleScroll}
+      horizontalPartWidth={virtualizer.cellWidth}
+      ignoredHorizontalParts={hiddenColumns}
+    >
+      {children({
+        visibleColumnIndexes: virtualizer.visibleColumnIndexes,
+        visibleRowIndexes: virtualizer.visibleRowIndexes,
+        elevatedColumnIndexes: virtualizer.elevatedColumnIndexes,
+        elevatedRowIndexes: virtualizer.elevatedRowIndexes,
+        cellHeight: virtualizer.cellHeight,
+        cellWidth: virtualizer.cellWidth,
+      })}
+    </Scroller>
+  );
+});
 
 export default Virtualizer;

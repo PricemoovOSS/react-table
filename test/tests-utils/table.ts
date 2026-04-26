@@ -14,5 +14,5 @@ export const fireMouseEvent = (element: Document | Element | Window, eventName: 
     new MouseEvent(eventName, {
       bubbles: true,
       cancelable: true,
-    })
+    }),
   );

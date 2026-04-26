@@ -61,7 +61,7 @@ export function getTable(cells = {}) {
         subtitle: "1 éphéméride",
         value: week.value,
       },
-    })
+    }),
   );
   const rows: IRow[] = [headerRow];
 

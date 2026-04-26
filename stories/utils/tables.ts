@@ -450,7 +450,7 @@ export function generateTableWithCustomColspan(
   cellsCount: number,
   subRow = false,
   level = 0,
-  colspanMatrix: any = defaultColspanMatrix(cellsCount)
+  colspanMatrix: any = defaultColspanMatrix(cellsCount),
 ) {
   const rows: IRow[] = Array.from(Array(rowsCount), (_, rowIndex) => {
     const totalColspan = colspanMatrix[rowIndex]
@@ -481,7 +481,7 @@ function generateRowWithCustomColumns(
   cellsCountWithColspan: number,
   subRow: boolean,
   level: number,
-  colspanMatrix: any
+  colspanMatrix: any,
 ) {
   return Array.from(Array(cellsCountWithColspan), (_, cellIndex) => {
     const currentCell = colspanMatrix[rowIndex]
@@ -495,7 +495,7 @@ function generateRowWithCustomColumns(
         subItems:
           subRow && cellIndex === 0
             ? Array.from(Array(cellsCount), (_, rowIndex) =>
-                generateRow(rowIndex, cellsCount, level <= 2, level + 1, currentCell.colspanMatrix)
+                generateRow(rowIndex, cellsCount, level <= 2, level + 1, currentCell.colspanMatrix),
               )
             : [],
       };

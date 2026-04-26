@@ -1,4 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
 import { fireEvent, getByTestId as globalGetByTestId, getByText as globalGetByText } from "@testing-library/react";
 
 import ColumnVisisbilityController from "../../src/components/table-interactions-manager/column-visibility-controller";
@@ -23,7 +22,7 @@ describe("ColumnVisisbilityController component", () => {
           ]}
           buttonRenderer={(toggleMenu) => <div onClick={toggleMenu}>Visisbility Controller</div>}
         />
-      </TabeInteractionManager>
+      </TabeInteractionManager>,
     );
     fireEvent.click(getByText("Visisbility Controller"));
     const fooItem = getByTestId("column-visibility-foo");
@@ -78,7 +77,7 @@ describe("ColumnVisisbilityController component", () => {
             );
           }}
         </TableInteractionsContext.Consumer>
-      </TabeInteractionManager>
+      </TabeInteractionManager>,
     );
     // The initial scroll (week number 1)
     fireEvent.scroll(getByTestId("scroller-container"));

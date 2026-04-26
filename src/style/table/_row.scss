@@ -1,3 +1,5 @@
+@use "../variable" as *;
+
 // must have the same value as MAX_ROW_LEVEL in constants.ts
 $max-row-level: 2;
 $max-row-level-1: $max-row-level - 1;

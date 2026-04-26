@@ -1,52 +1,60 @@
-## Contributing to @pricemoov/react-table
+# Contributing to @pricemoov/react-table
 
-First off, thanks for taking the time to contribute!
+Thanks for taking the time to contribute!
 
-The following is a set of guidelines for contributing to this project. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
+The following is a set of guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
 
-### I don't care about this whole thing, I just have a simple question!
+## Quick start
 
-If you need an answer, you can either:
+```bash
+git clone https://github.com/PricemoovOSS/react-table
+cd react-table
+npm ci
+npm run storybook    # http://localhost:9001
+npm test
+npm run lint
+```
 
-1. Open an issue and assign to it the `question` label, or
-2. Slack (TODO)
+Node 20+ is recommended. The CI pipeline runs on Node 20.
 
-### How can I contribute?
+## Reporting bugs
 
-#### Reporting bugs
+Before opening a bug, search the [issue tracker](https://github.com/PricemoovOSS/react-table/issues) to make sure it hasn't already been reported.
 
-Before reporting a bug, please make sure it hasn't already been reported by visiting the
-[issue section](todo).
+When opening a new issue, please include:
 
-If the bug you found hasn't been reported yet, create a new issue and assign it the proper label(s).
-Besides this, there isn't any specific guideline on how the bugs should be reported, Just be sure
-to be as clear as possible when describing it.
+- the version of `@pricemoov/react-table`, React and the browser you are using
+- a minimal reproduction (CodeSandbox, gist, or a Storybook story snippet)
+- the actual vs. expected behaviour
 
-#### Suggesting enhancements
+## Suggesting enhancements
 
-Same as the bug reporting. First of all, check if the enhancement has already been suggested.
-If it doesn't exist, create a new issue and give it the `enhancement` label, plus any other proper label.
+Open an issue with the `enhancement` label. Describe the use case before the proposed API — what problem are you trying to solve, and what alternatives have you considered?
 
-Keep in mind that what you may find useful might be completely useless for other users,
-so please, make sure that the enhancement can actually be useful for everyone before proposing it.
-If you find that it is actually useful only for you, consider forking the project and implementing that
-enhancement just for yourself.
+## Pull requests
 
-### Styleguides
+- Tests and stories are mandatory for any new public API.
+- Run `npm run format` and `npm run lint` before pushing.
+- Use the present imperative in commit messages ("Add fixed-row controller", not "Added").
+- One feature per PR; avoid mixing refactors and behaviour changes.
+- Update `README.md` when the public API changes.
 
-#### Commit messages
+### Architecture conventions
 
-- Use the present tense ("Add feature" not "Added feature")
-- Limit the first line to 72 characters or less
-- Reference issues and pull requests liberally after the first line
+- Components are **function components**. Class components are not accepted in new code.
+- Public components that need an imperative API expose it via `forwardRef` + `useImperativeHandle` (see `Scroller`, `Virtualizer`, `Table`). Don't reach into private state.
+- Pure virtualization math lives in `src/components/utils/table.tsx` and is consumed by `useVirtualizer`. Keep it framework-agnostic.
+- Heavy components are wrapped in `React.memo` with a custom equality comparator only when profiling shows a real benefit.
+- Tests use [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Do not introduce Enzyme.
+- Stories use [Storybook CSF3](https://storybook.js.org/docs/api/csf), with `args` + `argTypes` controls. Do not use `addon-knobs` or `storiesOf`.
 
-#### Pull Requests
+### Styleguide
 
-- Specify what has been changed/added/removed
-- Write a short and concise title. Be more specific in the description
-- Do not include issue numbers in the PR title
-- Be sure to follow all the project coding guidelines. ESLint will definitely give you a big help with this
-- End all files with a newline
-- Add configuration dependencies as devDependencies, and frontend dependencies as normal dependencies
-- Avoid platform-dependent code
-- npm run format
+- Strict TypeScript (`strict: true`, `strictNullChecks`).
+- Prefer ES module exports; avoid default exports for utilities.
+- Comments explain the _why_, not the _what_.
+- Add a unit test next to behavioural changes; for visual changes, add or update a Storybook story.
+
+## Releasing
+
+Releases are cut from `master` by repository maintainers via GitHub Releases; the [`npm-publish.yml`](.github/workflows/npm-publish.yml) workflow runs `npm test` + `npm run build` and publishes to npm with the `--access public` flag.

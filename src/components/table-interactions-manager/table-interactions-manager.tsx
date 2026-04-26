@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import Table from "../table/table";
+import { ITableHandle } from "../table/table";
 import { OnHorizontallyScrollProps } from "../virtualizer";
 import {
   TableInteractionsAction,
@@ -25,8 +25,8 @@ import useComponent, { ComponentRef } from "../../hooks/useComponent";
 import { compareNumbers } from "../utils/table";
 
 export interface OnScrollCallbackProps {
-  /** The current column id. */
-  columnsCursorId: string;
+  /** Identifier of the column currently aligned with the scroll cursor */
+  columnsCursorId: string | undefined;
 }
 
 interface Column {
@@ -35,196 +35,153 @@ interface Column {
 }
 
 export interface ITableInteractionsManagerProps extends ITableInteractionManagerState {
-  tableRef: Nullable<(table: Table) => void>;
-  /** The table ref. */
-  table: Nullable<ComponentRef<Table>>;
-  /** The current hidden columns of the table (indexes). */
+  tableRef: Nullable<(table: ITableHandle) => void>;
+  table: Nullable<ComponentRef<ITableHandle>>;
   hiddenColumnsIndexes: number[];
-  /** The current fixed columns of the table (indexes). */
   fixedColumnsIndexes: number[];
-  /** The current fixed rows of the table (indexes). */
   fixedRowsIndexes: number[];
-  /** The hidden columns controller. Please see the ColumnVisibilityController. */
   updateHiddenIds: (hiddenIds: string[]) => void;
-  /** The hidden rows controller. */
   updateHiddenRowIndexes: (rowIndexes: number[]) => void;
-  /** The fixed columns controller. */
   updateFixedColumnsIds: (fixedIds: string[]) => void;
-  /** The fixed rows controller. */
   updateFixedRowsIndexes: (fixedIndexes: number[]) => void;
-  /** The row height controler. Please see the CellDimensionController */
   updateRowHeight: (value: CellDimension) => void;
-  /** The cell width controler. Please see the CellDimensionController */
   updateCellWidth: (value: CellDimension) => void;
-  /** The scroll controler (scrolling by column id). Please see the WeekScrollerController. */
   goToColumnId: (columnId: string) => void;
-  /** The scroll controler (scrolling by column index). Please see the WeekScrollerController. */
   goToColumnIndex: (columnIndex: number) => void;
-  /** return the cell props of the table */
   getCell: (cellCoordinates: ICellCoordinates) => Nullable<ICell>;
-  /** Control opened rows */
   openTrees: (trees: ITrees) => void;
-  /** Control closed rows */
   closeTrees: (trees: ITrees) => void;
-  /** Callback fired when a "scroll" (Horizontally) event is detected. */
   onHorizontallyScroll: (
     props: OnHorizontallyScrollProps,
-    callback?: (onScrollCallbackProps: OnScrollCallbackProps) => void
+    callback?: (onScrollCallbackProps: OnScrollCallbackProps) => void,
   ) => void;
   onTableUpdate: () => void;
 }
 
 interface IProps {
-  children: JSX.Element | JSX.Element[];
-  toggleableColumns: Column[];
-  /** The initial table interaction config. */
+  children: React.ReactNode;
+  toggleableColumns?: Column[];
   initialConfig?: Partial<ITableInteractionManagerState>;
-  /** Callback fired when the interaction context state has changed. */
   onStateUpdate?: (state: ITableInteractionManagerState) => void;
 }
 
-const nullFunction = (): any => null;
+const noop: (...args: unknown[]) => never = () => null as never;
 
 const initialContext: ITableInteractionsManagerProps = {
   ...initialState,
-  tableRef: nullFunction,
+  tableRef: noop,
   table: null,
   hiddenColumnsIndexes: [],
   fixedColumnsIndexes: [],
   fixedRowsIndexes: [],
-  updateHiddenIds: nullFunction,
-  updateHiddenRowIndexes: nullFunction,
-  updateFixedColumnsIds: nullFunction,
-  updateFixedRowsIndexes: nullFunction,
-  updateRowHeight: nullFunction,
-  updateCellWidth: nullFunction,
-  goToColumnId: nullFunction,
-  goToColumnIndex: nullFunction,
-  getCell: nullFunction,
-  openTrees: nullFunction,
-  closeTrees: nullFunction,
-  onHorizontallyScroll: nullFunction,
-  onTableUpdate: nullFunction,
+  updateHiddenIds: noop,
+  updateHiddenRowIndexes: noop,
+  updateFixedColumnsIds: noop,
+  updateFixedRowsIndexes: noop,
+  updateRowHeight: noop,
+  updateCellWidth: noop,
+  goToColumnId: noop,
+  goToColumnIndex: noop,
+  getCell: noop,
+  openTrees: noop,
+  closeTrees: noop,
+  onHorizontallyScroll: noop,
+  onTableUpdate: noop,
 };
 
 export const TableInteractionsContext: React.Context<ITableInteractionsManagerProps> =
-  React.createContext<ITableInteractionsManagerProps>({
-    ...initialContext,
-  });
+  React.createContext<ITableInteractionsManagerProps>({ ...initialContext });
 
-const TableInteractionsManager = ({ children, initialConfig, onStateUpdate, toggleableColumns = [] }: IProps) => {
-  const initalHiddenColumnsIds = React.useMemo(
-    () => (toggleableColumns ? toggleableColumns.map((column) => column.id) : []),
-    [toggleableColumns]
-  );
+const mapDispatchToProps = (dispatch: React.Dispatch<TableInteractionsAction>) => ({
+  updateHiddenIds: (hiddenIds: string[]) => dispatch(updateHiddenColumns(hiddenIds)),
+  updateHiddenRowIndexes: (hiddenIndexes: number[]) => dispatch(updateHiddenRows(hiddenIndexes)),
+  updateFixedColumnsIds: (fixedIds: string[]) => dispatch(updateFixedColumns(fixedIds)),
+  updateFixedRowsIndexes: (fixedIndexes: number[]) => dispatch(updateFixedRows(fixedIndexes)),
+  updateRowHeight: (value: CellDimension) => dispatch(updateRowHeight(value)),
+  updateCellWidth: (value: CellDimension) => dispatch(updateCellWidth(value)),
+  updateColumnsCursor: (columnsCursor: CellValue) => dispatch(updateColumnsCursor(columnsCursor)),
+});
+
+const TableInteractionsManager: React.FC<IProps> = ({ children, initialConfig, onStateUpdate, toggleableColumns = [] }) => {
+  const initialHiddenColumnsIds = React.useMemo(() => toggleableColumns.map((column) => column.id), [toggleableColumns]);
+
   const [state, dispatch] = React.useReducer(TableInteractionsManagerReducer, {
     ...initialState,
-    hiddenColumnsIds: initalHiddenColumnsIds,
+    hiddenColumnsIds: initialHiddenColumnsIds,
     ...initialConfig,
   });
 
-  const [tableRef, table, onTableUpdate] = useComponent<Table>();
+  const [tableRef, table, onTableUpdate] = useComponent<ITableHandle>();
 
   const { columnsCursor, hiddenColumnsIds, fixedColumnsIds, fixedRowsIndexes } = state;
-  const { id: currentColumnsCursorId, index: currentColumnsCursorIndex } = columnsCursor || {
-    id: null,
-    index: null,
-  };
+  const { id: currentColumnsCursorId, index: currentColumnsCursorIndex } = columnsCursor || { id: null, index: null };
+
   const hiddenColumnsIdsMapping = React.useMemo(
     () =>
-      toggleableColumns.reduce((mapping, column) => {
+      toggleableColumns.reduce<Record<string, number>>((mapping, column) => {
         mapping[column.id] = column.index;
         return mapping;
       }, {}),
-    [toggleableColumns]
+    [toggleableColumns],
   );
+
   const actions = React.useMemo(() => mapDispatchToProps(dispatch), [dispatch]);
 
   React.useEffect(() => {
-    if (onStateUpdate) {
-      onStateUpdate(state);
-    }
-  }, [state]);
+    onStateUpdate?.(state);
+  }, [state, onStateUpdate]);
 
   const goToColumnId = React.useCallback(
     (columnId: string) => {
-      if (table.current) {
-        const columnIndex = table.current.getColumnIndex(columnId);
-        actions.updateColumnsCursor({ index: columnIndex, id: columnId });
-        table.current.goToColumnId(columnId);
-      }
+      if (!table.current) return;
+      const columnIndex = table.current.getColumnIndex(columnId);
+      if (columnIndex === undefined) return;
+      actions.updateColumnsCursor({ index: columnIndex, id: columnId });
+      table.current.goToColumnId(columnId);
     },
-    [actions, table]
+    [actions, table],
   );
 
   const goToColumnIndex = React.useCallback(
     (columnIndex: number) => {
-      if (table.current) {
-        const columnId = table.current.getColumnId(columnIndex);
-        actions.updateColumnsCursor({ index: columnIndex, id: columnId });
-        table.current.goToColumnIndex(columnIndex);
-      }
+      if (!table.current) return;
+      const columnId = table.current.getColumnId(columnIndex);
+      actions.updateColumnsCursor({ index: columnIndex, id: columnId ?? "" });
+      table.current.goToColumnIndex(columnIndex);
     },
-    [actions, table]
+    [actions, table],
   );
 
   const getCell = React.useCallback(
-    (cellCoordinates: ICellCoordinates) => {
-      if (table.current) {
-        return table.current.getCell(cellCoordinates);
-      }
-      return null;
-    },
-    [actions, table]
+    (cellCoordinates: ICellCoordinates) => (table.current ? table.current.getCell(cellCoordinates) : null),
+    [table],
   );
 
-  const openTrees = React.useCallback(
-    (trees: ITrees) => {
-      if (table.current) {
-        return table.current.openTrees(trees);
-      }
-      return null;
-    },
-    [table]
-  );
-
-  const closeTrees = React.useCallback(
-    (trees: ITrees) => {
-      if (table.current) {
-        return table.current.closeTrees(trees);
-      }
-      return null;
-    },
-    [table]
-  );
+  const openTrees = React.useCallback((trees: ITrees) => table.current?.openTrees(trees), [table]);
+  const closeTrees = React.useCallback((trees: ITrees) => table.current?.closeTrees(trees), [table]);
 
   const onHorizontallyScroll = React.useCallback(
-    (onScrollProps: OnHorizontallyScrollProps, callback?: (onScrollCallbackProps: OnScrollCallbackProps) => void) => {
-      const { columnsCursor } = onScrollProps;
-      if (table.current) {
-        const columnId = table.current.getColumnId(columnsCursor);
-        if (table.current && (!currentColumnsCursorIndex || currentColumnsCursorIndex !== columnsCursor)) {
-          actions.updateColumnsCursor({ index: columnsCursor, id: columnId });
-        }
-        if (callback) {
-          callback({ columnsCursorId: columnId });
-        }
+    (onScrollProps: OnHorizontallyScrollProps, callback?: (props: OnScrollCallbackProps) => void) => {
+      if (!table.current) return;
+      const { columnsCursor: cursor } = onScrollProps;
+      const columnId = table.current.getColumnId(cursor);
+      if (!currentColumnsCursorIndex || currentColumnsCursorIndex !== cursor) {
+        actions.updateColumnsCursor({ index: cursor, id: columnId ?? "" });
       }
+      callback?.({ columnsCursorId: columnId });
     },
-    [actions, table, currentColumnsCursorIndex]
+    [actions, table, currentColumnsCursorIndex],
   );
 
   const updateCellWidth = React.useCallback(
     (value: CellDimension) => {
       actions.updateCellWidth(value);
-      /** We need an async scrolling. Waiting for cell width update. */
+      // Async scroll: wait for the cell width to apply before re-aligning to the cursor.
       if (currentColumnsCursorId) {
-        setTimeout(() => {
-          goToColumnId(currentColumnsCursorId);
-        }, 0);
+        setTimeout(() => goToColumnId(currentColumnsCursorId), 0);
       }
     },
-    [actions, currentColumnsCursorId, goToColumnId]
+    [actions, currentColumnsCursorId, goToColumnId],
   );
 
   const hiddenColumnsIndexes = React.useMemo(
@@ -232,26 +189,23 @@ const TableInteractionsManager = ({ children, initialConfig, onStateUpdate, togg
       hiddenColumnsIds
         .reduce<number[]>((result, columnId) => {
           const columnIndex = hiddenColumnsIdsMapping[columnId];
-          if (columnIndex >= 0) {
-            result.push(columnIndex);
-          }
+          if (columnIndex >= 0) result.push(columnIndex);
           return result;
         }, [])
         .sort(compareNumbers),
-    [hiddenColumnsIds, hiddenColumnsIdsMapping]
+    [hiddenColumnsIds, hiddenColumnsIdsMapping],
   );
 
   const fixedColumnsIndexes = React.useMemo(
     () =>
       fixedColumnsIds.reduce<number[]>((result, columnId) => {
         const columnIndex = table.current?.getColumnIndex(columnId);
-        if (columnIndex && columnIndex >= 0) {
-          result.push(columnIndex);
-        }
+        if (columnIndex !== undefined && columnIndex >= 0) result.push(columnIndex);
         return result;
       }, []),
-    [fixedColumnsIds, table]
+    [fixedColumnsIds, table],
   );
+
   return (
     <TableInteractionsContext.Provider
       value={{
@@ -277,22 +231,6 @@ const TableInteractionsManager = ({ children, initialConfig, onStateUpdate, togg
   );
 };
 
-TableInteractionsManager.defaultProps = {
-  toggleableColumns: [],
-};
-
-const mapDispatchToProps = (dispatch: React.Dispatch<TableInteractionsAction>) => ({
-  updateHiddenIds: (hiddenIds: string[]) => dispatch(updateHiddenColumns(hiddenIds)),
-  updateHiddenRowIndexes: (hiddenIndexes: number[]) => dispatch(updateHiddenRows(hiddenIndexes)),
-  updateFixedColumnsIds: (fixedIds: string[]) => dispatch(updateFixedColumns(fixedIds)),
-  updateFixedRowsIndexes: (fixedIndexes: number[]) => dispatch(updateFixedRows(fixedIndexes)),
-  updateRowHeight: (value: CellDimension) => dispatch(updateRowHeight(value)),
-  updateCellWidth: (value: CellDimension) => dispatch(updateCellWidth(value)),
-  updateColumnsCursor: (columnsCursor: CellValue) => dispatch(updateColumnsCursor(columnsCursor)),
-});
-
-export const useTableInteractionsManager = (): ITableInteractionsManagerProps => {
-  return React.useContext(TableInteractionsContext);
-};
+export const useTableInteractionsManager = (): ITableInteractionsManagerProps => React.useContext(TableInteractionsContext);
 
 export default TableInteractionsManager;

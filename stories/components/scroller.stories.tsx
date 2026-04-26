@@ -1,202 +1,112 @@
-/* eslint-disable  import/no-extraneous-dependencies */
 import * as React from "react";
-import { storiesOf } from "@storybook/react";
-import { number } from "@storybook/addon-knobs";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import Button from "@mui/material/Button";
 import Fab from "@mui/material/Fab";
 
-import Scroller from "../../src/components/scroller";
+import Scroller, { IScrollerHandle, ScrollDirection } from "../../src/components/scroller";
 import { withThemeProvider } from "../utils/decorators";
 
-export const defaultScrollerProps = {
+const defaultProps = {
   width: 300,
   height: 300,
   virtualWidth: 4000,
   virtualHeight: 4000,
-  onScroll: (scrollValues): void => console.log(scrollValues),
 };
 
-storiesOf("Scroller", module)
-  .addDecorator(withThemeProvider)
-  .addParameters({ jest: ["scroller", "virtualized-table"] })
-  .add(
-    "Default",
-    () => (
-      <Scroller {...defaultScrollerProps}>
-        <DefaultScrollContent />
-      </Scroller>
-    ),
-    {
-      info: { inline: true },
-    }
-  )
-  .add(
-    "Vertical scroll",
-    () => (
-      <Scroller {...defaultScrollerProps} virtualWidth={defaultScrollerProps.width}>
-        <DefaultScrollContent />
-      </Scroller>
-    ),
-    {
-      info: { inline: true },
-    }
-  )
-  .add(
-    "Horizontal scroll",
-    () => (
-      <Scroller {...defaultScrollerProps} virtualHeight={defaultScrollerProps.height}>
-        <DefaultScrollContent />
-      </Scroller>
-    ),
-    {
-      info: { inline: true },
-    }
-  )
-  .add(
-    "Remote controlled",
-    () => (
-      <RemoteControlled>
-        {/* Your content here */}
-        <Scroller {...defaultScrollerProps} virtualWidth={0} width={0} />
-      </RemoteControlled>
-    ),
-    { info: { inline: true } }
-  )
-  .add(
-    "Playground",
-    () => (
-      // @ts-ignore
-      <Counter>
-        <Scroller
-          {...defaultScrollerProps}
-          width={number("width", defaultScrollerProps.width)}
-          height={number("height", defaultScrollerProps.height)}
-          virtualWidth={number("virtualWidth", defaultScrollerProps.virtualWidth)}
-          virtualHeight={number("virtualHeight", defaultScrollerProps.virtualHeight)}
-        />
-      </Counter>
-    ),
-    { info: { inline: true } }
-  )
-  .add(
-    "Multiple scroll",
-    () => (
-      <div style={{ display: "flex" }}>
-        {/*
-          // @ts-ignore not happy with the React clone element */}
-        <Counter>
-          <Scroller {...defaultScrollerProps} />
-        </Counter>
-        {/*
-          // @ts-ignore not happy with the React clone element */}
-        <Counter>
-          <Scroller {...defaultScrollerProps} />
-        </Counter>
-      </div>
-    ),
-    { info: { inline: true } }
-  );
+const meta: Meta<typeof Scroller> = {
+  title: "Components/Scroller",
+  component: Scroller,
+  decorators: [withThemeProvider],
+  tags: ["autodocs"],
+  parameters: {
+    jest: ["scroller", "virtualized-table"],
+    docs: {
+      description: {
+        component:
+          "Low-level scroll container exposing imperative `scrollToTop` / `scrollToLeft` and reporting scroll origin (native vs imperative).",
+      },
+    },
+  },
+  args: defaultProps,
+  argTypes: {
+    width: { control: { type: "number", min: 0, step: 50 } },
+    height: { control: { type: "number", min: 0, step: 50 } },
+    virtualWidth: { control: { type: "number", min: 0, step: 100 } },
+    virtualHeight: { control: { type: "number", min: 0, step: 100 } },
+  },
+};
 
-// Story components
+export default meta;
 
-const DefaultScrollContent = () => <div>Scroll content</div>;
+type Story = StoryObj<typeof Scroller>;
 
-const CounterContent = ({ scrollToLeft, scrollToTop, leftCounter, topCounter, scrollToLeftValue, scrollToTopValue }) => {
+const PlaceholderContent = () => <div style={{ padding: 16 }}>Scroll content</div>;
+
+export const Default: Story = {
+  render: (args) => (
+    <Scroller {...args} onScroll={(s) => console.log(s)}>
+      <PlaceholderContent />
+    </Scroller>
+  ),
+};
+
+export const VerticalOnly: Story = {
+  args: { virtualWidth: defaultProps.width },
+  render: (args) => (
+    <Scroller {...args} onScroll={(s) => console.log(s)}>
+      <PlaceholderContent />
+    </Scroller>
+  ),
+};
+
+export const HorizontalOnly: Story = {
+  args: { virtualHeight: defaultProps.height },
+  render: (args) => (
+    <Scroller {...args} onScroll={(s) => console.log(s)}>
+      <PlaceholderContent />
+    </Scroller>
+  ),
+};
+
+export const Imperative: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story: "Demonstrates the imperative ref API with `scrollToTop` and `scrollToLeft`.",
+      },
+    },
+  },
+  render: (args) => <ImperativeStory {...args} />,
+};
+
+const ImperativeStory: React.FC<typeof defaultProps> = (args) => {
+  const ref = React.useRef<IScrollerHandle>(null);
+  const [topCount, setTopCount] = React.useState(0);
+  const [leftCount, setLeftCount] = React.useState(0);
+  const onScroll = ({ directions }: { directions: ScrollDirection[] }) => {
+    if (directions.includes(ScrollDirection.down)) setTopCount((v) => v + 1);
+    else if (directions.includes(ScrollDirection.up)) setTopCount((v) => Math.max(0, v - 1));
+    if (directions.includes(ScrollDirection.right)) setLeftCount((v) => v + 1);
+    else if (directions.includes(ScrollDirection.left)) setLeftCount((v) => Math.max(0, v - 1));
+  };
   return (
-    <div>
-      <div>
-        <div>Count Top: {topCounter}</div>
-        <div>
-          <Button color="primary" onClick={() => scrollToTop(scrollToTopValue)}>
-            Scroll to Top
-          </Button>
-        </div>
+    <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Button variant="contained" onClick={() => ref.current?.scrollToTop(args.virtualHeight / 2)}>
+          Scroll to middle (top)
+        </Button>
+        <Button variant="outlined" onClick={() => ref.current?.scrollToLeft(args.virtualWidth / 2)}>
+          Scroll to middle (left)
+        </Button>
+        <Fab color="primary" size="medium">
+          <span style={{ fontSize: 12 }}>
+            ↓{topCount} →{leftCount}
+          </span>
+        </Fab>
       </div>
-      <div>
-        <div>Count Left: {leftCounter}</div>
-        <div>
-          <Button color="secondary" onClick={() => scrollToLeft(scrollToLeftValue)}>
-            Scroll to Left
-          </Button>
-        </div>
-      </div>
+      <Scroller ref={ref} {...args} onScroll={onScroll}>
+        <PlaceholderContent />
+      </Scroller>
     </div>
   );
 };
-
-const Counter = ({ children }) => {
-  const [topCounter, setTopCounter] = React.useState(0);
-  const [leftCounter, setLeftCounter] = React.useState(0);
-  const onScroll = ({ direction, scrollOrigin }) => {
-    console.log(`Scroll direction: ${direction} ${scrollOrigin}`);
-    if (direction === "down") {
-      setTopCounter(topCounter + 1);
-    } else if (direction === "up" && topCounter > 0) {
-      setTopCounter(topCounter - 1);
-    } else if (direction === "right") {
-      setLeftCounter(leftCounter + 1);
-    } else if (direction === "left" && leftCounter > 0) {
-      setLeftCounter(leftCounter - 1);
-    }
-  };
-  const newChildren = React.Children.map(children, (child) =>
-    React.cloneElement(child, {
-      onScroll,
-      children: (
-        // @ts-ignore missing properties (scrollToTop, scrollToLeft)
-        <CounterContent
-          leftCounter={leftCounter}
-          topCounter={topCounter}
-          scrollToLeftValue={number("scrollToLeftValue", defaultScrollerProps.virtualWidth / 2)}
-          scrollToTopValue={number("scrollToTopValue", defaultScrollerProps.virtualHeight / 2)}
-        />
-      ),
-    })
-  );
-  return newChildren;
-};
-
-interface IState {
-  topCounter: number;
-}
-
-class RemoteControlled extends React.Component<{}, IState> {
-  constructor(props) {
-    super(props);
-    this.state = { topCounter: 0 };
-  }
-
-  public onScroll = ({ directions }) => {
-    const { topCounter } = this.state;
-    if (directions.includes("down")) {
-      this.setState({ topCounter: topCounter + 1 });
-    } else if (directions.includes("up") && topCounter > 0) {
-      this.setState({ topCounter: topCounter - 1 });
-    }
-  };
-
-  public render() {
-    const { topCounter } = this.state;
-    const { children } = this.props;
-    const newChildren = React.Children.map(children, (child) =>
-      // @ts-ignore Type 'string' is not assignable to type ReactElement
-      React.cloneElement(child, {
-        onScroll: this.onScroll,
-      })
-    );
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-around",
-        }}
-      >
-        <Fab color="secondary">
-          <div>{topCounter}</div>
-        </Fab>
-        {newChildren}
-      </div>
-    );
-  }
-}

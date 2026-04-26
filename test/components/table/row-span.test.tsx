@@ -1,48 +1,45 @@
-/// <reference path="../../typings/tests-entry.d.ts" />
-import { createRenderer } from "react-test-renderer/shallow";
-import { cleanup, fireEvent } from "@testing-library/react";
+import * as React from "react";
+import { fireEvent } from "@testing-library/react";
 
 import RowSpan from "../../../src/components/table/row-span";
-import { customRender } from "../../tests-utils/react-testing-library-utils";
+import { customRender, screen } from "../../tests-utils/react-testing-library-utils";
 
-describe("RowSpan component", () => {
-  test("should render a closed span", () => {
-    const props = {
-      opened: false,
-      length: 2,
-      title: "Foo",
-      color: "red",
-      toggle: () => null,
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<RowSpan {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+function renderInTable(ui: React.ReactNode) {
+  return customRender(
+    <table>
+      <tbody>
+        <tr>{ui}</tr>
+      </tbody>
+    </table>,
+  );
+}
+
+describe("RowSpan", () => {
+  it("renders the closed icon when not opened", () => {
+    renderInTable(<RowSpan opened={false} length={2} title="Foo" color="red" toggle={() => undefined} />);
+    expect(screen.getByTestId("table-toggle-row-btn")).toHaveTextContent("keyboard_arrow_right");
   });
 
-  test("should render an opened span", () => {
-    const props = {
-      opened: true,
-      length: 2,
-      title: "Foo",
-      toggle: () => null,
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<RowSpan {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("renders the opened icon when opened", () => {
+    renderInTable(<RowSpan opened length={2} title="Foo" toggle={() => undefined} />);
+    expect(screen.getByTestId("table-toggle-row-btn")).toHaveTextContent("keyboard_arrow_down");
   });
 
-  test("should call the span toggle callback", () => {
-    const props = {
-      opened: true,
-      length: 2,
-      title: "Foo",
-      toggle: jest.fn(),
-    };
-    const { container } = customRender(<RowSpan {...props} />);
-    fireEvent.click(container.getElementsByTagName("button")[0]);
-    expect(props.toggle).toBeCalledTimes(1);
-    cleanup();
+  it("renders the title", () => {
+    renderInTable(<RowSpan opened length={3} title="Foo" toggle={() => undefined} />);
+    expect(screen.getByText("Foo")).toBeInTheDocument();
+  });
+
+  it("invokes toggle when the button is clicked", () => {
+    const toggle = jest.fn();
+    renderInTable(<RowSpan opened length={2} title="Foo" toggle={toggle} />);
+    fireEvent.click(screen.getByTestId("table-toggle-row-btn"));
+    expect(toggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies the configured rowSpan", () => {
+    renderInTable(<RowSpan opened length={4} title="Foo" toggle={() => undefined} />);
+    const td = screen.getByTestId("table-toggle-row-btn").closest("td");
+    expect(td).toHaveAttribute("rowspan", "4");
   });
 });

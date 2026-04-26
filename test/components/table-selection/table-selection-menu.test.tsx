@@ -1,68 +1,53 @@
-/// <reference path="../../typings/tests-entry.d.ts" />
-import { createRenderer } from "react-test-renderer/shallow";
+import * as React from "react";
+import { fireEvent } from "@testing-library/react";
 
 import TableSelectionMenu, { IMenuAction } from "../../../src/components/table-selection/table-selection-menu";
+import { customRender, screen } from "../../tests-utils/react-testing-library-utils";
 
 const selectedCells = { 1: [0, 1, 2], 2: [0, 1, 2] };
 
-const selectionCell = {
-  anchorEl: null,
-  contextCell: { rowIndex: 0, cellIndex: 2 },
-};
+function renderMenu(opened: boolean, actions: IMenuAction[] = []) {
+  const closeMenu = jest.fn();
+  customRender(
+    <TableSelectionMenu
+      closeMenu={closeMenu}
+      selectedCells={selectedCells}
+      selectionContext={{ anchorEl: document.body, contextCell: { rowIndex: 0, cellIndex: 2 } }}
+      isMenuOpened={opened}
+      actions={actions}
+    />,
+  );
+  return { closeMenu };
+}
 
-describe("TableSelectionMenu component", () => {
-  test("should render TableSelectionMenu closed menu", () => {
-    const props = {
-      closeMenu: jest.fn(),
-      selectedCells,
-      selectionContext: selectionCell,
-      isMenuOpened: false,
-      actions: [],
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<TableSelectionMenu {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+describe("TableSelectionMenu", () => {
+  it("does not render menu items when not opened", () => {
+    renderMenu(false, [
+      { id: "foo", title: "Foo item", component: () => null },
+      { id: "bar", title: "Bar item", component: () => null },
+    ]);
+    expect(screen.queryByText("Foo item")).toBeNull();
   });
 
-  test("should render TableSelectionMenu opened menu", () => {
-    const props = {
-      closeMenu: jest.fn(),
-      selectedCells,
-      selectionContext: selectionCell,
-      isMenuOpened: true,
-      actions: [],
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<TableSelectionMenu {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("renders the configured actions when opened", () => {
+    renderMenu(true, [
+      { id: "foo", title: "Foo item", component: () => null },
+      { id: "bar", title: "Bar item", component: () => null },
+    ]);
+    expect(screen.getByText("Foo item")).toBeInTheDocument();
+    expect(screen.getByText("Bar item")).toBeInTheDocument();
   });
 
-  test("should render TableSelectionMenu opened menu with actions", () => {
-    const actions: IMenuAction[] = [
-      {
-        id: "foo",
-        title: "Foo item",
-        component: () => <div>Foo</div>,
-        menuItem: ({ children }) => <div>{children}</div>,
-      },
-      {
-        id: "bar",
-        title: "Bar item",
-        component: () => <div>Foo</div>,
-      },
-    ];
-    const props = {
-      closeMenu: jest.fn(),
-      selectedCells,
-      selectionContext: selectionCell,
-      isMenuOpened: true,
-      actions,
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<TableSelectionMenu {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("calls closeMenu and renders the action component when an action is clicked", () => {
+    const ActionComponent = ({ onClose }: { onClose: () => void }) => (
+      <button data-testid="active-action" onClick={onClose}>
+        Active
+      </button>
+    );
+    const { closeMenu } = renderMenu(true, [{ id: "foo", title: "Foo item", component: ActionComponent }]);
+
+    fireEvent.click(screen.getByText("Foo item"));
+    expect(closeMenu).toHaveBeenCalled();
+    expect(screen.getByTestId("active-action")).toBeInTheDocument();
   });
 });

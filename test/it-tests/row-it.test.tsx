@@ -1,4 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
 import { cleanup, fireEvent, getByTestId } from "@testing-library/react";
 
 import { subRows, subMiam } from "../../stories/utils/tables";

@@ -2,3 +2,16 @@
   height: 100%;
   width: 100%;
 }
+
+// The keyboard-navigation wrapper sits between the consumer's container and the
+// table tree. It must be transparent to the layout chain — `<ResponsiveContainer>`
+// inside reads `height: 100%` from us, so we forward our parent's size 1:1.
+// We can't use `display: contents` because the wrapper has `tabIndex={0}` and
+// must remain focusable, which `display: contents` breaks on some browsers.
+.grid-keyboard-wrapper {
+  height: 100%;
+  width: 100%;
+  // No outline on the wrapper itself: focus is always delegated to a cell,
+  // which has its own `:focus-visible` indicator.
+  outline: none;
+}

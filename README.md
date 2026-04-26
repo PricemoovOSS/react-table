@@ -1,109 +1,73 @@
-
 # @pricemoov/react-table
 
-React components for efficiently rendering large tabular data
+> Lightweight, virtualized React table for very large 2D grids — fixed rows / columns, hidden indexes, custom sizes, sub-rows, span columns and selection.
 
-<img src="images/table.png" width="1200" style="box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.5)"/>
+<img src="images/table.png" width="1200" alt="A 15 000 × 1 000 virtualized table"/>
 
-*A table with 15 000 rows and 1 000 columns (with sub rows, fixed rows and fixed columns)*
-
-
-<img src="images/tableSelection.png" width="500" style="box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.5)"/>
-
-*A table with custom right click menu*
-
-![Storybook](https://cdn.jsdelivr.net/gh/storybooks/brand@master/badge/badge-storybook.svg)
-
-### Installing
-
-```
-npm install -S @pricemoov/react-table
+```bash
+npm install @pricemoov/react-table
 ```
 
-### Usage
-
-
-```js
+```tsx
 import { Table } from "@pricemoov/react-table";
 import "@pricemoov/react-table/dist/style/index.css";
 
- const rows = [
-    {
-      id: "header",
-      isHeader: true,
-      cells: [
-        {
-          id: "wawoo",
-          value: "Wawooo!"
-        },
-        ...
-      ]
-    },
-    {
-      id: "row1",
-      cells: [
-        {
-          id: "react",
-          value: "React"
-        },
-        ...
-      ]
-    },
-    ...
-   ];
-
-function MyComponent() {
-  return (
-    <Table
-      id="table-id"
-      rows={rows}
-      columns={{ 0: { style: { justifyContent: "left" }, size: 200 } }}
-      isVirtualized
-      virtualizerProps={{
-        fixedRows: [0],
-        fixedColumns: [0],
-        height: 500,
-        width: 1000
-      }}
-    />
-  );
-}
+<Table
+  id="prices"
+  rows={rows}
+  isVirtualized
+  virtualizerProps={{ height: 500, width: 1000, fixedRows: [0], fixedColumns: [0] }}
+/>;
 ```
 
-## Getting Started (Devs)
+## Features at a glance
 
-```bash
-git clone ...
-cd react-table
-npm ci
-npm run storybook
+|     |                                                                         |
+| --- | ----------------------------------------------------------------------- |
+| 🚀  | 2D virtualization (rows × columns) — only the visible window is mounted |
+| 📌  | Fixed rows / columns at the start or end of the grid                    |
+| 🙈  | Hidden rows / columns                                                   |
+| 📐  | Mixed default + per-row / per-column custom sizes                       |
+| 🌳  | Sub-rows tree with span-column toggling                                 |
+| 🖱️  | Cell selection (rectangle, row-only, column-only) + custom context menu |
+| 🪝  | Reusable `useVirtualizer` hook for non-table virtualized layouts        |
+| 🎯  | Imperative API via `forwardRef` (`scrollToColumnId`, `getCell`, …)      |
+| ♿  | ARIA Grid semantics + arrow-key navigation out of the box (W3C APG)     |
+
+## Documentation map
+
+- [**Getting started**](docs/getting-started.md) — install, peer-deps, first table
+- [**Recipes**](docs/recipes.md) — virtualization, fixed/hidden indexes, sub-rows, selection menu, scroll API, custom cells
+- [**API reference**](docs/api.md) — props, types, imperative handles, hook signatures
+- [**`useVirtualizer` hook**](docs/use-virtualizer.md) — virtualize without `<Table>`
+- [**Architecture**](docs/architecture.md) — internal layering, perf characteristics, design decisions
+- [**Accessibility**](docs/accessibility.md) — ARIA grid, keyboard navigation, hooks
+- [**FAQ & gotchas**](docs/faq.md)
+- [**Contributing**](CONTRIBUTING.md)
+- [**Changelog**](CHANGELOG.md)
+
+## At a glance
+
+```
+useVirtualizer ───────┐
+   (pure hook)        │ visibleRowIndexes / visibleColumnIndexes
+                      │ elevatedRowIndexes / elevatedColumnIndexes
+                      │ cellHeight / cellWidth
+                      ▼
+         <Virtualizer>            (forwardRef → IVirtualizerHandle)
+            └── <Scroller>        (forwardRef → IScrollerHandle)
+                  └── <ElementaryTable>
+                        └── <Row>     (memoized)
+                              └── <Cell> (memoized)
 ```
 
-🚀 Storybook ready at  http://localhost:9001/
+Storybook is the living documentation: `npm run storybook` → http://localhost:9001/.
 
-## Running the tests
+## Stack
 
-```
-npm run test
-npm run lint
-```
-## Contributing
-
-**PRs are welcome!**
-You noticed a bug, a possible improvement or whatever?
-Any help is always appreciated, so don't hesitate opening one!
-
-Be sure to check out the [contributing guidelines](CONTRIBUTING.md) to fasten
-up the merging process.
-
-## Active authors
-
-* **Amen Souissi**  [amen-souissi](https://github.com/amen-souissi)
-* **Hyacinthe Knobloch** [hyacintheknobloch](https://github.com/hyacintheknobloch)
-* **Benjamin Wintrebert** [Ben-Wintrebert](https://github.com/Ben-Wintrebert)
-
-See also the list of [contributors](https://github.com/PricemoovOSS/react-table/graphs/contributors) who participated in this project.
+React 18 · TypeScript 5 · MUI v5 (peer dependency) · Storybook 9 (Vite) · Jest 29 · React Testing Library 15.
 
 ## License
 
-This project is licensed under the Apache-2.0 License - see the [LICENSE.md](https://github.com/PricemoovOSS/react-table/blob/master/LICENSE) file for details
+MIT — see [LICENSE](LICENSE). Same model as React: permissive, compatible with proprietary
+and closed-source projects, no copyleft, no NOTICE requirement.

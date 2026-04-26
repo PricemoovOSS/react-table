@@ -1,217 +1,221 @@
-/// <reference path="../../typings/tests-entry.d.ts" />
-import { createRenderer } from "react-test-renderer/shallow";
-import { mount } from "enzyme";
+import * as React from "react";
+import { fireEvent } from "@testing-library/react";
 
 import Cell from "../../../src/components/table/cell";
 import { subRows } from "../../../stories/utils/tables";
-import { withThemeProvider } from "../../../stories/utils/decorators";
+import { customRender, screen } from "../../tests-utils/react-testing-library-utils";
 import { MouseClickButtons } from "../../../src/components/constants";
 
-const rows = subRows({});
+const baseProps = {
+  id: "foo",
+  index: 0,
+  rowIndex: 0,
+  relativeRowIndex: 0,
+};
 
-describe("Cell component", () => {
-  test("should render the default cell", () => {
-    const props = { id: "foo", rowIndex: 0, relativeRowIndex: 0, value: "bar", subItems: [] };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+describe("Cell", () => {
+  it("renders the value as text by default", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const cell = screen.getByTestId("table-column");
+    expect(cell.tagName.toLowerCase()).toBe("td");
+    expect(cell).toHaveTextContent("bar");
+    expect(cell.querySelector(".cell-value")).toHaveAttribute("title", "bar");
   });
 
-  test("should render the loading cell", () => {
-    const props = { id: "foo", loading: true, rowIndex: 0, relativeRowIndex: 0, subItems: [] };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("renders a Skeleton when loading", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} loading />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const cell = screen.getByTestId("table-column");
+    expect(cell.querySelector(".cell-skeleton-container")).not.toBeNull();
   });
 
-  test("should render the cell with a custom class Name", () => {
-    const props = {
-      id: "foo",
-      loading: true,
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      subItems: [],
-      getClassName: () => "custom-className",
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("uses getClassName when provided", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" getClassName={() => "custom-class"} />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(screen.getByTestId("table-column")).toHaveClass("custom-class");
   });
 
-  test("should render a cell with custom style", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: [],
-      style: {
-        width: "50px",
-        height: "25px",
-      },
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("applies the column style multiplied by colspan", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" colspan={2} style={{ width: 50, height: 25 }} />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const cell = screen.getByTestId("table-column") as HTMLTableCellElement;
+    expect(cell.colSpan).toBe(2);
+    expect(cell).toHaveStyle({ width: "100px", height: "25px" });
   });
 
-  test("should render a cell with custom style with colspan", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: [],
-      colspan: 2,
-      style: {
-        width: 50,
-        height: "25px",
-      },
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("renders as <th> when component=th", () => {
+    customRender(
+      <table>
+        <thead>
+          <tr>
+            <Cell {...baseProps} value="bar" component="th" />
+          </tr>
+        </thead>
+      </table>,
+    );
+    expect(screen.getByTestId("table-column").tagName.toLowerCase()).toBe("th");
   });
 
-  test("should render a header cell", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: [],
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} component="th" />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("does not show the toggle when no subItems", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(screen.queryByTestId("table-cell-sub-item-toggle")).toBeNull();
   });
 
-  test("should render a cell with closed subItems", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: rows,
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} component="th" />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("shows a closed toggle when there are sub-items", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" subItems={subRows({})} />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    const toggle = screen.getByTestId("table-cell-sub-item-toggle");
+    expect(toggle).toHaveTextContent("keyboard_arrow_right");
   });
 
-  test("should render a cell with subItems (hideSubItemsOpener)", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: rows,
-      hideSubItemsOpener: true,
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("shows an open toggle when opened=true", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" subItems={subRows({})} opened />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(screen.getByTestId("table-cell-sub-item-toggle")).toHaveTextContent("keyboard_arrow_down");
   });
 
-  test("should render a cell with opened subItems", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: rows,
-      opened: true,
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("hides the toggle when hideSubItemsOpener is true", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" subItems={subRows({})} hideSubItemsOpener />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(screen.queryByTestId("table-cell-sub-item-toggle")).toBeNull();
   });
 
-  test("should render a selected cell", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      isSelected: true,
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("flags itself selected when isSelected and selectable", () => {
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" isSelected />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(screen.getByTestId("table-column")).toHaveClass("selected");
   });
 
-  test("should render a cell with custom cell content", () => {
-    const props = {
-      id: "foo",
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      cellContent: ({ name }: { name: string }) => <div>{name}</div>,
-      cellContentProps: { name: "Foo" },
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Cell {...props} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("renders a custom cellContent component with merged props", () => {
+    const cellContent: React.FC<{ name: string; value?: string }> = ({ name, value }) => (
+      <div data-testid="custom-content">
+        {name}-{value}
+      </div>
+    );
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} value="bar" cellContent={cellContent} cellContentProps={{ name: "Foo" }} />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    expect(screen.getByTestId("custom-content")).toHaveTextContent("Foo-bar");
   });
 
-  test("should call mouse event callback", () => {
-    const props = {
-      id: "foo",
-      index: 2,
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: rows,
+  it("forwards mouse events with cell coordinates", () => {
+    const handlers = {
       onMouseEnter: jest.fn(),
       onMouseDown: jest.fn(),
       onMouseUp: jest.fn(),
       onContextMenu: jest.fn(),
     };
-    const wrapper = mount(withThemeProvider(() => <Cell {...props} />));
-    // onMouseEnter
-    wrapper.find("td").last().simulate("mouseenter");
-    expect(props.onMouseEnter).toBeCalledWith({ rowIndex: 0, cellIndex: 2 });
-    // onMouseDown
-    wrapper
-      .find("td")
-      .last()
-      .simulate("mousedown", { nativeEvent: { button: 0 } });
-    expect(props.onMouseDown).toBeCalledWith({ rowIndex: 0, cellIndex: 2 }, MouseClickButtons.left);
-    // onMouseUp
-    wrapper.find("td").last().simulate("mouseup");
-    expect(props.onMouseUp).toBeCalled();
-    // onContextMenu
-    const eventTarget = wrapper.find("[data-testid='table-cell-wrapper-foo']").last().getDOMNode();
-    wrapper.find("td").last().simulate("contextmenu");
-    expect(props.onContextMenu).toBeCalledWith({
-      anchorEl: eventTarget,
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} index={2} value="bar" subItems={subRows({})} {...handlers} />
+          </tr>
+        </tbody>
+      </table>,
+    );
+
+    const cell = screen.getByTestId("table-column");
+    fireEvent.mouseEnter(cell);
+    expect(handlers.onMouseEnter).toHaveBeenCalledWith({ rowIndex: 0, cellIndex: 2 });
+
+    fireEvent.mouseDown(cell, { button: 0 });
+    expect(handlers.onMouseDown).toHaveBeenCalledWith({ rowIndex: 0, cellIndex: 2 }, MouseClickButtons.left);
+
+    fireEvent.mouseUp(cell);
+    expect(handlers.onMouseUp).toHaveBeenCalled();
+
+    const wrapper = screen.getByTestId("table-cell-wrapper-foo");
+    fireEvent.contextMenu(cell);
+    expect(handlers.onContextMenu).toHaveBeenCalledWith({
+      anchorEl: wrapper,
       contextCell: { rowIndex: 0, cellIndex: 2 },
     });
   });
 
-  test("should call onCallOpen callback", () => {
-    const props = {
-      id: "foo",
-      index: 2,
-      rowIndex: 0,
-      relativeRowIndex: 0,
-      value: "bar",
-      subItems: rows,
-      onCallOpen: jest.fn(),
-    };
-    const wrapper = mount(withThemeProvider(() => <Cell {...props} />));
-    // onOpen
-    wrapper.find("[data-testid='table-cell-sub-item-toggle']").last().simulate("click");
-    expect(props.onCallOpen).toBeCalledWith(2);
+  it("invokes onCallOpen with its index when the toggle is clicked", () => {
+    const onCallOpen = jest.fn();
+    customRender(
+      <table>
+        <tbody>
+          <tr>
+            <Cell {...baseProps} index={2} value="bar" subItems={subRows({})} onCallOpen={onCallOpen} />
+          </tr>
+        </tbody>
+      </table>,
+    );
+    fireEvent.click(screen.getByTestId("table-cell-sub-item-toggle"));
+    expect(onCallOpen).toHaveBeenCalledWith(2);
   });
 });

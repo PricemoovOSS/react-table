@@ -1,7 +1,5 @@
-/* eslint-disable  import/no-extraneous-dependencies */
 import * as React from "react";
-import { storiesOf } from "@storybook/react";
-import { number, object } from "@storybook/addon-knobs";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { action } from "@storybook/addon-actions";
 
 import { withThemeProvider } from "../../utils/decorators";
@@ -11,8 +9,8 @@ import { IContentCellProps } from "../../../src/components/table/cell";
 import { getTable } from "./tables";
 import { Nullable } from "../../../src/components/typing";
 
-interface IProps extends IContentCellProps {
-  defaultValue: number;
+interface IEditableCellParentProps extends IContentCellProps {
+  defaultValue: Nullable<number>;
   alreadyEdited?: boolean;
   maxValue?: number;
   isDisabled?: boolean;
@@ -24,29 +22,26 @@ const mask: IMask = {
   decimals: 2,
 };
 
-export const formatValue = (value: Nullable<number>, mask?: IMask) =>
-  mask && value === null
-    ? "-"
-    : new Intl.NumberFormat("fr-FR", {
-        //@ts-ignore mask is defined
-        style: mask.is_percentage ? "percent" : undefined,
-        //@ts-ignore mask is defined
-        maximumFractionDigits: mask.decimals,
-        //@ts-ignore mask is defined
-        minimumFractionDigits: mask.decimals,
-        //@ts-ignore value is defined
-      }).format(value);
+export function formatValue(value: Nullable<number>, valueMask?: IMask): string {
+  if (valueMask && (value === null || value === undefined)) {
+    return "-";
+  }
+  const decimals = valueMask?.decimals ?? 2;
+  return new Intl.NumberFormat("fr-FR", {
+    style: valueMask?.is_percentage ? "percent" : undefined,
+    maximumFractionDigits: decimals,
+    minimumFractionDigits: decimals,
+  }).format(value as number);
+}
 
-const EditableCellParent = (props: IProps) => {
-  const { defaultValue, alreadyEdited, maxValue, isDisabled } = props;
-
-  const [isEdited, setIsEdited] = React.useState(alreadyEdited || false);
+const EditableCellParent: React.FC<IEditableCellParentProps> = ({ defaultValue, alreadyEdited, maxValue, isDisabled }) => {
+  const [isEdited, setIsEdited] = React.useState<boolean>(alreadyEdited ?? false);
   const [value, setValue] = React.useState<Nullable<number>>(defaultValue);
 
-  const handleOnConfirmValue = (value: Nullable<number>) => {
-    action("onConfirmValue")(value);
-    setValue(value);
-    setIsEdited(defaultValue !== value);
+  const handleOnConfirmValue = (nextValue: Nullable<number>) => {
+    action("onConfirmValue")(nextValue);
+    setValue(nextValue);
+    setIsEdited(defaultValue !== nextValue);
   };
 
   return (
@@ -56,14 +51,14 @@ const EditableCellParent = (props: IProps) => {
       value={value}
       mask={mask}
       formatValue={formatValue}
-      validateValue={maxValue ? (value: Nullable<number>) => (value ? value <= maxValue : false) : undefined}
+      validateValue={maxValue ? (next: Nullable<number>) => (next ? next <= maxValue : false) : undefined}
       onConfirmValue={handleOnConfirmValue}
       isDisabled={isDisabled}
     />
   );
 };
 
-const defaultProps = getTable({
+const integratedProps = getTable({
   1: {
     1: {
       cellContent: EditableCellParent,
@@ -74,71 +69,82 @@ const defaultProps = getTable({
   },
 });
 
-storiesOf("Styled Table/editable cell", module)
-  .addDecorator(withThemeProvider)
-  .add(
-    "Default",
-    () => (
-      <div style={{ padding: 10 }}>
-        <EditableCellParent defaultValue={0} />
-      </div>
-    ),
-    {
-      info: { inline: true },
-    }
-  )
-  .add(
-    "Edited",
-    () => (
-      <div style={{ padding: 10 }}>
-        <EditableCellParent defaultValue={123.45} alreadyEdited />
-      </div>
-    ),
-    {
-      info: { inline: true },
-    }
-  )
-  .add(
-    "Disabled",
-    () => (
-      <div style={{ padding: 10 }}>
-        <EditableCellParent defaultValue={123.45} alreadyEdited isDisabled />
-      </div>
-    ),
-    {
-      info: { inline: true },
-    }
-  )
-  .add(
-    "Error with invalid value",
-    () => (
-      <div style={{ padding: 10 }}>
-        <EditableCellParent defaultValue={10} maxValue={10} />
-      </div>
-    ),
-    {
-      info: { inline: true },
-    }
-  )
-  .add(
-    "Integrated",
-    () => (
-      <Table
-        {...defaultProps}
-        columns={{ 0: { style: { justifyContent: "left" } } }}
-        isVirtualized
-        isSelectable={false}
-        virtualizerProps={{
-          fixedRows: object("fixedRows", [0]),
-          fixedColumns: object("fixedColumns", [0]),
-          height: number("height", 500),
-          width: number("width", 1000),
-          rowsCount: 5,
-          columnsCount: 6,
-        }}
-      />
-    ),
-    {
-      info: { inline: true },
-    }
-  );
+const meta: Meta<typeof EditableCellParent> = {
+  title: "Styled Table/editable cell",
+  component: EditableCellParent,
+  decorators: [withThemeProvider],
+  tags: ["autodocs"],
+};
+
+export default meta;
+
+type Story = StoryObj<typeof EditableCellParent>;
+
+export const Default: Story = {
+  args: { defaultValue: 0 },
+  render: (args) => (
+    <div style={{ padding: 10 }}>
+      <EditableCellParent {...args} />
+    </div>
+  ),
+};
+
+export const Edited: Story = {
+  args: { defaultValue: 123.45, alreadyEdited: true },
+  render: (args) => (
+    <div style={{ padding: 10 }}>
+      <EditableCellParent {...args} />
+    </div>
+  ),
+};
+
+export const Disabled: Story = {
+  args: { defaultValue: 123.45, alreadyEdited: true, isDisabled: true },
+  render: (args) => (
+    <div style={{ padding: 10 }}>
+      <EditableCellParent {...args} />
+    </div>
+  ),
+};
+
+export const ErrorWithInvalidValue: Story = {
+  args: { defaultValue: 10, maxValue: 10 },
+  render: (args) => (
+    <div style={{ padding: 10 }}>
+      <EditableCellParent {...args} />
+    </div>
+  ),
+};
+
+interface IIntegratedArgs {
+  height: number;
+  width: number;
+  fixedRows: number[];
+  fixedColumns: number[];
+}
+
+export const Integrated: StoryObj<IIntegratedArgs> = {
+  args: { height: 500, width: 1000, fixedRows: [0], fixedColumns: [0] },
+  argTypes: {
+    height: { control: { type: "number" } },
+    width: { control: { type: "number" } },
+    fixedRows: { control: { type: "object" } },
+    fixedColumns: { control: { type: "object" } },
+  },
+  render: ({ height, width, fixedRows, fixedColumns }) => (
+    <Table
+      {...integratedProps}
+      columns={{ 0: { style: { justifyContent: "left" } } }}
+      isVirtualized
+      isSelectable={false}
+      virtualizerProps={{
+        fixedRows,
+        fixedColumns,
+        height,
+        width,
+        rowsCount: 5,
+        columnsCount: 6,
+      }}
+    />
+  ),
+};

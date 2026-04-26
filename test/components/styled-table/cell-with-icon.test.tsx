@@ -1,49 +1,31 @@
-/// <reference path="../../typings/tests-entry.d.ts" />
-
-import { createRenderer } from "react-test-renderer/shallow";
-import { mount } from "enzyme";
+import * as React from "react";
+import { fireEvent } from "@testing-library/react";
 
 import CellWithIcon from "../../../src/components/styled-table/cell-with-icon";
-import { withThemeProvider } from "../../../stories/utils/decorators";
+import { customRender, screen } from "../../tests-utils/react-testing-library-utils";
 
-describe("CellWithIcon component", () => {
-  test("should render the default CellWithIcon", () => {
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<CellWithIcon value="TUNING" iconName="edit" />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+describe("CellWithIcon", () => {
+  it("renders an icon and the value", () => {
+    customRender(<CellWithIcon value="TUNING" iconName="edit" />);
+    expect(screen.getByText("TUNING")).toBeInTheDocument();
+    expect(screen.getByText("edit")).toBeInTheDocument();
   });
 
-  test("should render the CellWithIcon with an action", () => {
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<CellWithIcon value="TUNING" iconName="edit" onClick={jest.fn()} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("renders a button when onClick is provided", () => {
+    customRender(<CellWithIcon value="TUNING" iconName="edit" onClick={() => undefined} />);
+    expect(screen.getByTestId("toolbar-action-btn")).toBeInTheDocument();
   });
 
-  test("should render the CellWithIcon with a tooltip", () => {
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<CellWithIcon value="TUNING" iconName="edit" tooltipTitle="Hello Foo" />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("renders a tooltip wrapper when tooltipTitle is provided", () => {
+    customRender(<CellWithIcon value="TUNING" iconName="edit" tooltipTitle="Hello Foo" />);
+    // MUI Tooltip lazy-renders the popper but adds aria-label on the trigger.
+    expect(screen.getByLabelText("Hello Foo")).toBeInTheDocument();
   });
 
-  test("should render the CellWithIcon with a tooltip and an action", () => {
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<CellWithIcon value="TUNING" iconName="edit" tooltipTitle="Hello Foo" onClick={jest.fn()} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
-  });
-
-  test("should call onclick", () => {
-    const props = {
-      iconName: "edit",
-      value: "Foo",
-      onClick: jest.fn(),
-    };
-    const wrapper = mount(withThemeProvider(() => <CellWithIcon {...props} />));
-    // onClick
-    wrapper.find("[data-testid='toolbar-action-btn']").last().simulate("click");
-    expect(props.onClick).toBeCalledTimes(1);
+  it("invokes onClick when the action button is clicked", () => {
+    const onClick = jest.fn();
+    customRender(<CellWithIcon value="Foo" iconName="edit" onClick={onClick} />);
+    fireEvent.click(screen.getByTestId("toolbar-action-btn"));
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

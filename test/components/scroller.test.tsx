@@ -1,178 +1,128 @@
-/// <reference path="../typings/tests-entry.d.ts" />
-import { createRenderer } from "react-test-renderer/shallow";
-import { mount } from "enzyme";
+import * as React from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
-import Scroller, { SCROLLBAR_SIZE } from "../../src/components/scroller";
+import Scroller, { IScrollerHandle, SCROLLBAR_SIZE, ScrollDirection, ScrollOrigin } from "../../src/components/scroller";
 
-const scrollerProps = {
+const baseProps = {
   width: 300,
   height: 300,
   virtualWidth: 4000,
   virtualHeight: 4000,
-  onScroll: jest.fn(),
 };
 
-describe("Scroller component", () => {
-  test("should render the default scroller", () => {
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Scroller {...scrollerProps} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+function renderScroller(overrides: Partial<React.ComponentProps<typeof Scroller>> = {}) {
+  const onScroll = jest.fn();
+  const ref = React.createRef<IScrollerHandle>();
+  const utils = render(<Scroller ref={ref} {...baseProps} onScroll={onScroll} {...overrides} />);
+  return { ...utils, ref, onScroll };
+}
+
+describe("Scroller", () => {
+  it("renders both axes when virtual size exceeds the viewport", () => {
+    renderScroller();
+    const container = screen.getByTestId("scroller-container");
+    expect(container).toHaveStyle({ overflowX: "scroll", overflowY: "scroll" });
   });
 
-  test("should render an horizontal scroller", () => {
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Scroller {...scrollerProps} virtualHeight={scrollerProps.height} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("hides the vertical scrollbar when virtualHeight equals height", () => {
+    renderScroller({ virtualHeight: baseProps.height });
+    expect(screen.getByTestId("scroller-container")).toHaveStyle({ overflowY: "hidden" });
   });
 
-  test("should render a vertical scroller", () => {
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(<Scroller {...scrollerProps} virtualWidth={scrollerProps.width} />);
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+  it("hides the horizontal scrollbar when virtualWidth equals width", () => {
+    renderScroller({ virtualWidth: baseProps.width });
+    expect(screen.getByTestId("scroller-container")).toHaveStyle({ overflowX: "hidden" });
   });
 
-  it("should scroll to the expected scrollTop value (native scrolling)", () => {
-    const onScroll = jest.fn();
-    const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
-    // @ts-ignore scrollerContainer is prevate
-    scrollerInstance.scrollerContainer.current.scrollTop = 1500;
-    // simulate the scroll event
-    wrapper.find("[data-testid='scroller-container']").simulate("scroll");
-    expect(onScroll).toBeCalledTimes(1);
-    expect(onScroll).toBeCalledWith({
-      directions: ["down"],
-      scrollOrigin: "native",
+  it("emits onScroll with the right values on a native vertical scroll", () => {
+    const { onScroll } = renderScroller();
+    const container = screen.getByTestId("scroller-container");
+    container.scrollTop = 1500;
+    fireEvent.scroll(container);
+
+    expect(onScroll).toHaveBeenCalledTimes(1);
+    expect(onScroll).toHaveBeenCalledWith({
+      directions: [ScrollDirection.down],
+      scrollOrigin: ScrollOrigin.native,
+      maxTopReached: false,
       maxBottomReached: false,
       maxLeftReached: true,
       maxRightReached: false,
-      maxTopReached: false,
       scrollLeft: 0,
       scrollTop: 1500,
     });
   });
 
-  it("should scroll to the expected scrollTop value", () => {
-    const onScroll = jest.fn();
-    const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
-    const scrollTop = 1500;
-    scrollerInstance.scrollToTop(scrollTop);
-    // @ts-ignore scrollOrigin is prevate
-    expect(scrollerInstance.scrollOrigin).toBe("external");
-    // @ts-ignore scrollerContainer is prevate
-    expect(scrollerInstance.scrollerContainer.current.scrollTop).toBe(scrollTop);
-    // simulate the scroll event
-    wrapper.find("[data-testid='scroller-container']").simulate("scroll");
-    expect(onScroll).toBeCalledTimes(1);
-    expect(onScroll).toBeCalledWith({
-      directions: ["down"],
-      scrollOrigin: "external",
+  it("scrolls to the requested top via the imperative API and reports external origin", () => {
+    const { ref, onScroll } = renderScroller();
+    expect(ref.current?.scrollToTop(1500)).toBe(true);
+
+    const container = screen.getByTestId("scroller-container");
+    expect(container.scrollTop).toBe(1500);
+    fireEvent.scroll(container);
+
+    expect(onScroll).toHaveBeenCalledWith({
+      directions: [ScrollDirection.down],
+      scrollOrigin: ScrollOrigin.external,
+      maxTopReached: false,
       maxBottomReached: false,
       maxLeftReached: true,
       maxRightReached: false,
-      maxTopReached: false,
       scrollLeft: 0,
       scrollTop: 1500,
     });
   });
 
-  it("should reach the bottom", () => {
-    const onScroll = jest.fn();
-    const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
-    const maxScrollTop = scrollerProps.virtualHeight - scrollerProps.height - 5 + SCROLLBAR_SIZE;
-    scrollerInstance.scrollToTop(maxScrollTop);
-    // @ts-ignore scrollOrigin is private
-    expect(scrollerInstance.scrollOrigin).toBe("external");
-    // @ts-ignore scrollerContainer is private
-    expect(scrollerInstance.scrollerContainer.current.scrollTop).toBe(maxScrollTop);
-    // simulate the scroll event
-    wrapper.find("[data-testid='scroller-container']").simulate("scroll");
-    expect(onScroll).toBeCalledTimes(1);
-    expect(onScroll).toBeCalledWith({
-      directions: ["down"],
-      scrollOrigin: "external",
-      maxBottomReached: true,
-      maxLeftReached: true,
-      maxRightReached: false,
-      maxTopReached: false,
-      scrollLeft: 0,
-      scrollTop: maxScrollTop,
-    });
+  it("reports maxBottomReached when reaching the bottom of the content", () => {
+    const { ref, onScroll } = renderScroller();
+    const maxScrollTop = baseProps.virtualHeight - baseProps.height - 5 + SCROLLBAR_SIZE;
+    ref.current?.scrollToTop(maxScrollTop);
+    fireEvent.scroll(screen.getByTestId("scroller-container"));
+
+    expect(onScroll).toHaveBeenCalledWith(
+      expect.objectContaining({ maxBottomReached: true, scrollTop: maxScrollTop, scrollOrigin: ScrollOrigin.external }),
+    );
   });
 
-  it("should scroll to the expected scrollLeft value (native scrolling)", () => {
-    const onScroll = jest.fn();
-    const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
-    // @ts-ignore scrollerContainer is private
-    scrollerInstance.scrollerContainer.current.scrollLeft = 1500;
-    // simulate the scroll event
-    wrapper.find("[data-testid='scroller-container']").simulate("scroll");
-    expect(onScroll).toBeCalledTimes(1);
-    expect(onScroll).toBeCalledWith({
-      directions: ["right"],
-      scrollOrigin: "native",
-      maxBottomReached: false,
-      maxLeftReached: false,
-      maxRightReached: false,
-      maxTopReached: true,
-      scrollLeft: 1500,
-      scrollTop: 0,
-    });
+  it("scrolls to the requested left via the imperative API", () => {
+    const { ref, onScroll } = renderScroller();
+    expect(ref.current?.scrollToLeft(1500)).toBe(true);
+
+    const container = screen.getByTestId("scroller-container");
+    expect(container.scrollLeft).toBe(1500);
+    fireEvent.scroll(container);
+
+    expect(onScroll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        directions: [ScrollDirection.right],
+        scrollOrigin: ScrollOrigin.external,
+        scrollLeft: 1500,
+      }),
+    );
   });
 
-  it("should scroll to the expected scrollLeft value", () => {
-    const onScroll = jest.fn();
-    const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
-    const scrollLeft = 1500;
-    scrollerInstance.scrollToLeft(scrollLeft);
-    // @ts-ignore scrollOrigin is private
-    expect(scrollerInstance.scrollOrigin).toBe("external");
-    // @ts-ignore scrollerContainer is private
-    expect(scrollerInstance.scrollerContainer.current.scrollLeft).toBe(scrollLeft);
-    // simulate the scroll event
-    wrapper.find("[data-testid='scroller-container']").simulate("scroll");
-    expect(onScroll).toBeCalledTimes(1);
-    expect(onScroll).toBeCalledWith({
-      directions: ["right"],
-      scrollOrigin: "external",
-      maxBottomReached: false,
-      maxLeftReached: false,
-      maxRightReached: false,
-      maxTopReached: true,
-      scrollLeft: 1500,
-      scrollTop: 0,
-    });
+  it("reports maxRightReached at the right edge", () => {
+    const { ref, onScroll } = renderScroller();
+    const maxScrollLeft = baseProps.virtualWidth - baseProps.width - 5 + SCROLLBAR_SIZE;
+    ref.current?.scrollToLeft(maxScrollLeft);
+    fireEvent.scroll(screen.getByTestId("scroller-container"));
+
+    expect(onScroll).toHaveBeenCalledWith(expect.objectContaining({ maxRightReached: true, scrollLeft: maxScrollLeft }));
   });
 
-  it("should reach the right", () => {
-    const onScroll = jest.fn();
-    const wrapper = mount(<Scroller {...scrollerProps} onScroll={onScroll} />);
-    const scrollerInstance: Scroller = wrapper.instance() as Scroller;
-    const maxScrollLeft = scrollerProps.virtualWidth - scrollerProps.width - 5 + SCROLLBAR_SIZE;
-    scrollerInstance.scrollToLeft(maxScrollLeft);
-    // @ts-ignore scrollOrigin is private
-    expect(scrollerInstance.scrollOrigin).toBe("external");
-    // @ts-ignore scrollerContainer is private
-    expect(scrollerInstance.scrollerContainer.current.scrollLeft).toBe(maxScrollLeft);
-    // simulate the scroll event
-    wrapper.find("[data-testid='scroller-container']").simulate("scroll");
-    expect(onScroll).toBeCalledTimes(1);
-    expect(onScroll).toBeCalledWith({
-      directions: ["right"],
-      scrollOrigin: "external",
-      maxBottomReached: false,
-      maxLeftReached: false,
-      maxRightReached: true,
-      maxTopReached: true,
-      scrollLeft: maxScrollLeft,
-      scrollTop: 0,
-    });
+  it("returns false when scrolling is not possible (no overflow on the axis)", () => {
+    const { ref } = renderScroller({ virtualHeight: baseProps.height, virtualWidth: baseProps.width });
+    expect(ref.current?.scrollToTop(100)).toBe(false);
+    expect(ref.current?.scrollToLeft(100)).toBe(false);
+  });
+
+  it("clamps imperative scroll values to the available range", () => {
+    const { ref } = renderScroller();
+    ref.current?.scrollToTop(99999);
+    const container = screen.getByTestId("scroller-container");
+    expect(container.scrollTop).toBeLessThanOrEqual(baseProps.virtualHeight);
+
+    ref.current?.scrollToLeft(-100);
+    expect(container.scrollLeft).toBe(0);
   });
 });

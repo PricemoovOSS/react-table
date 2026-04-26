@@ -1,23 +1,38 @@
-/// <reference path="../../typings/tests-entry.d.ts" />
-
-import { createRenderer } from "react-test-renderer/shallow";
+import * as React from "react";
+import { fireEvent, render } from "@testing-library/react";
 
 import { DumbFixedRowController } from "../../../src/components/table-interactions-manager/fixed-row-controller";
 
-describe("FixedRowController component", () => {
-  test("should render the default FixedRowController", () => {
-    const props = {
-      rowIndex: 2,
-      fixedRowsIndexes: [1],
-      updateFixedRowsIndexes: jest.fn(),
-    };
-    const shallowRenderer = createRenderer();
-    shallowRenderer.render(
-      <DumbFixedRowController {...props}>
-        {({ toggleFixedRowIndex }) => <span onClick={toggleFixedRowIndex}>Bar</span>}
-      </DumbFixedRowController>
+describe("FixedRowController", () => {
+  it("reports not-fixed and adds the row index on toggle", () => {
+    const updateFixedRowsIndexes = jest.fn();
+    const { getByTestId } = render(
+      <DumbFixedRowController rowIndex={2} fixedRowsIndexes={[1]} updateFixedRowsIndexes={updateFixedRowsIndexes}>
+        {({ toggleFixedRowIndex, isFixed }) => (
+          <button data-testid="trigger" data-fixed={isFixed} onClick={toggleFixedRowIndex}>
+            Toggle
+          </button>
+        )}
+      </DumbFixedRowController>,
     );
-    const rendered = shallowRenderer.getRenderOutput();
-    expect(rendered).toMatchSnapshot();
+    expect(getByTestId("trigger")).toHaveAttribute("data-fixed", "false");
+    fireEvent.click(getByTestId("trigger"));
+    expect(updateFixedRowsIndexes).toHaveBeenCalledWith([1, 2]);
+  });
+
+  it("removes the row index when already fixed", () => {
+    const updateFixedRowsIndexes = jest.fn();
+    const { getByTestId } = render(
+      <DumbFixedRowController rowIndex={1} fixedRowsIndexes={[1]} updateFixedRowsIndexes={updateFixedRowsIndexes}>
+        {({ toggleFixedRowIndex, isFixed }) => (
+          <button data-testid="trigger" data-fixed={isFixed} onClick={toggleFixedRowIndex}>
+            Toggle
+          </button>
+        )}
+      </DumbFixedRowController>,
+    );
+    expect(getByTestId("trigger")).toHaveAttribute("data-fixed", "true");
+    fireEvent.click(getByTestId("trigger"));
+    expect(updateFixedRowsIndexes).toHaveBeenCalledWith([]);
   });
 });

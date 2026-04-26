@@ -1,39 +1,24 @@
-/* eslint-disable  import/no-extraneous-dependencies */
 import * as React from "react";
 import { render, RenderOptions } from "@testing-library/react";
-import { createTheme, StyledEngineProvider } from "@mui/material/styles";
-import { ThemeProvider } from "@mui/styles";
+import { ThemeProvider, StyledEngineProvider, createTheme } from "@mui/material/styles";
 
 export const blueDkt = "#0082c3";
 
-const muiDktTheme = createTheme({
-  typography: {
-    fontFamily: "Roboto Condensed",
-  },
+const theme = createTheme({
+  typography: { fontFamily: "Roboto" },
   palette: {
-    primary: {
-      light: blueDkt,
-      dark: blueDkt,
-      main: blueDkt,
-    },
-    secondary: {
-      light: blueDkt,
-      dark: blueDkt,
-      main: blueDkt,
-    },
+    primary: { light: blueDkt, dark: blueDkt, main: blueDkt },
+    secondary: { light: blueDkt, dark: blueDkt, main: blueDkt },
   },
 });
 
-const AllTheProviders = ({ children }: { children: JSX.Element | JSX.Element[] }) => {
-  return (
-    <StyledEngineProvider injectFirst>
-      <ThemeProvider theme={muiDktTheme}>{children}</ThemeProvider>
-    </StyledEngineProvider>
-  );
-};
+const AllTheProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <StyledEngineProvider injectFirst>
+    <ThemeProvider theme={theme}>{children}</ThemeProvider>
+  </StyledEngineProvider>
+);
 
-// Just using the same typing as react-testing-library render method.
-type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
-
-export const customRender = (ui: React.ReactElement<any>, options?: Omit<RenderOptions, "queries">) =>
+export const customRender = (ui: React.ReactElement, options?: Omit<RenderOptions, "queries">) =>
   render(ui, { wrapper: AllTheProviders, ...options });
+
+export { screen, fireEvent, within } from "@testing-library/react";
