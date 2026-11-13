@@ -3,7 +3,12 @@
   "version": "5.0.0",
   "description": "React components for efficiently rendering large tabular data",
   "main": "dist/index.js",
+  "module": "dist/esm/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": [
+    "*.css",
+    "*.scss"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/PricemoovOSS/react-table"
@@ -90,13 +95,14 @@
     "vite": "^5.4.21"
   },
   "scripts": {
-    "build": "rimraf dist && tsc --project tsconfig.build.json && yarn run build:scss",
+    "build": "rimraf dist && tsc --project tsconfig.build.json && tsc --project tsconfig.esm.json && yarn run build:scss",
     "build:scss": "sass --no-source-map src/style/index.scss dist/style/index.css",
     "prepublishOnly": "yarn run build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:browser": "playwright test",
+    "test:size": "node scripts/check-bundle-size.js",
     "test:generate-output": "jest --json --outputFile=jest-test-results.json --passWithNoTests || true",
     "lint": "yarn run lint:eslint && yarn run lint:prettier && yarn run lint:css",
     "lint:eslint": "eslint --cache --ext .js,.jsx,.ts,.tsx ./",
