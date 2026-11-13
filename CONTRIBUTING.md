@@ -89,3 +89,5 @@ versions. Check a change of dependencies with a fresh install: `rm -rf node_modu
 ## Releasing
 
 Releases are cut from `master` by repository maintainers via GitHub Releases; the [`npm-publish.yml`](.github/workflows/npm-publish.yml) workflow runs `yarn test` + `yarn build` and publishes to npm with the `--access public` flag.
+
+The published version comes from the release tag, which must match `package.json` apart from a pre-release suffix: `@pricemoov-oss/react-table@5.0.0` goes to the npm dist-tag `latest`, `@pricemoov-oss/react-table@5.0.0-beta.1` to `beta` and leaves `latest` untouched. A pre-release can be cut from a branch, to try it in an application before the merge.
