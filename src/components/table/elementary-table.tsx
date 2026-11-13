@@ -89,6 +89,10 @@ export interface IElementaryTableProps<IDataCoordinates = any> extends IElementa
   totalRowCount?: number;
   /** Total number of columns in the full grid (used for `aria-colcount`) */
   totalColumnCount?: number;
+  /** When true, the grid declares `aria-multiselectable="true"` (rectangular cell selection) */
+  multiSelectable?: boolean;
+  /** Grid semantics (`role="grid"`, focusable cells): set when the keyboard navigation is on */
+  keyboardNavigation?: boolean;
   /** Accessible name of the table */
   ariaLabel?: string;
   /** Id of the element that labels the table */
@@ -142,9 +146,11 @@ function ElementaryTable<IDataCoordinates = any>({
   onCellContextMenu,
   totalRowCount,
   totalColumnCount,
+  multiSelectable,
   groupBranches,
   groupsProps,
   SubRowsToggleButtonComponent,
+  keyboardNavigation = false,
   ariaLabel,
   ariaLabelledBy,
 }: IElementaryTableProps<IDataCoordinates>): JSX.Element {
@@ -255,6 +261,7 @@ function ElementaryTable<IDataCoordinates = any>({
           getVisibleRows={getVisibleRows}
           getRowTreeLength={getRowTreeLengthForIndex}
           SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
+          keyboardNavigation={keyboardNavigation}
         />
       );
 
@@ -288,6 +295,7 @@ function ElementaryTable<IDataCoordinates = any>({
     getVisibleRows,
     getRowTreeLengthForIndex,
     SubRowsToggleButtonComponent,
+    keyboardNavigation,
   ]);
 
   const groups = React.useMemo(() => {
@@ -303,10 +311,13 @@ function ElementaryTable<IDataCoordinates = any>({
   return (
     <table
       className="table-root"
+      // A grid promises keyboard navigation: without it, this is a plain table.
+      role={keyboardNavigation ? "grid" : undefined}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       aria-rowcount={totalRowCount}
       aria-colcount={totalColumnCount}
+      aria-multiselectable={keyboardNavigation && multiSelectable ? true : undefined}
     >
       {hasHeader ? (
         <thead>

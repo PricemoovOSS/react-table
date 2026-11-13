@@ -76,6 +76,8 @@ export interface IRowProps extends IRow {
    * If undefined, it means there are no sub-rows.
    */
   subRowsCellIndex?: number;
+  /** Grid semantics on the cells: set when the keyboard navigation is on */
+  keyboardNavigation?: boolean;
 }
 
 const DEFAULT_RELATIVE_INDEX: Partial<IRelativeIndex> = {
@@ -232,6 +234,7 @@ function RowComponent(props: IRowProps): JSX.Element | null {
     style,
     SubRowsToggleButtonComponent,
     subRowsCellIndex,
+    keyboardNavigation,
   } = props;
 
   // Only for a row with spanning cells: the mapping costs one pass over all the cells of the
@@ -390,6 +393,7 @@ function RowComponent(props: IRowProps): JSX.Element | null {
           onClose={onSubRowClose}
           selectedCells={rowSelectedCells ?? EMPTY_SELECTED_CELLS}
           SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
+          keyboardNavigation={keyboardNavigation}
         />
       );
     });
@@ -475,6 +479,7 @@ function RowComponent(props: IRowProps): JSX.Element | null {
               onMouseUp={onCellMouseUp}
               onContextMenu={onCellContextMenu}
               SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
+              isGridCell={keyboardNavigation}
             />
           );
         })}

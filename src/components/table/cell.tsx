@@ -38,6 +38,8 @@ export interface SubRowsToggleButtonComponentProps {
    * Receives the standard MouseEvent for HTML button elements.
    */
   onClick: React.MouseEventHandler<HTMLButtonElement>;
+  /** `-1` when the cell itself is the keyboard target (keyboard navigation on) */
+  tabIndex?: number;
 }
 
 export interface ICell<IDataCoordinates = any> {
@@ -88,18 +90,21 @@ export interface ICellProps extends ICell {
    * (i.e., a child row or nested row within another).
    */
   isSubCell?: boolean;
+  /** Grid semantics: `gridcell` role, focusable cell, Enter/Space toggles the sub-rows */
+  isGridCell?: boolean;
 }
 
 const DEFAULT_TAG: CellTag = "td";
 const DEFAULT_STYLE: React.CSSProperties = { height: DEFAULT_ROW_HEIGHT, width: DEFAULT_COLUMN_WIDTH };
 
-const DefaultSubRowsToggleButtonComponent = ({ opened, onClick }: SubRowsToggleButtonComponentProps) => {
+const DefaultSubRowsToggleButtonComponent = ({ opened, onClick, tabIndex }: SubRowsToggleButtonComponentProps) => {
   return (
     <IconButton
       className="table-cell-sub-item-toggle"
       data-testid="table-cell-sub-item-toggle"
       onClick={onClick}
       size="large"
+      tabIndex={tabIndex}
       aria-expanded={!!opened}
       aria-label={opened ? "Collapse sub-rows" : "Expand sub-rows"}
     >
@@ -107,6 +112,28 @@ const DefaultSubRowsToggleButtonComponent = ({ opened, onClick }: SubRowsToggleB
     </IconButton>
   );
 };
+
+/**
+ * Roving tabIndex: grid cells are focusable by program but never in the tab order, the
+ * grid container takes the Tab stop and hands the focus over to the active cell.
+ */
+function getGridCellProps(
+  isHeader: boolean,
+  rowIndex: number,
+  columnIndex: number,
+  isSelected: boolean,
+  hasSubItems: boolean,
+  opened?: boolean,
+) {
+  return {
+    role: isHeader ? "columnheader" : "gridcell",
+    tabIndex: -1,
+    "aria-selected": isSelected ? true : undefined,
+    "aria-expanded": hasSubItems ? !!opened : undefined,
+    "data-cell-row": rowIndex,
+    "data-cell-col": columnIndex,
+  };
+}
 
 interface ICellStyles {
   column: React.CSSProperties;
@@ -167,6 +194,7 @@ interface ICellHandlers {
   mouseEnter: () => void;
   mouseUp: () => void;
   contextMenu: (event: React.MouseEvent<HTMLElement>) => void;
+  keyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
 }
 
 interface ICellMemory {
@@ -191,6 +219,14 @@ function createCellHandlers(memory: ICellMemory): ICellHandlers {
       event.preventDefault();
       // the wrapper of the content is the only child of the cell
       onContextMenu({ anchorEl: event.currentTarget.firstElementChild, contextCell: getCoordinates(memory.props) });
+    },
+    // Enter or Space on a focused cell opens its sub rows, like a click on its toggle
+    keyDown: (event) => {
+      if (event.target !== event.currentTarget || !canToggle(memory.props)) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        memory.props.onCallOpen?.(memory.props.index ?? 0);
+      }
     },
   };
 }
@@ -221,6 +257,7 @@ function CellComponent(props: ICellProps): JSX.Element {
     component = DEFAULT_TAG,
     value,
     opened,
+    subItems,
     cellContent: CellContent,
     cellContentProps,
     dataCoordinates,
@@ -229,6 +266,7 @@ function CellComponent(props: ICellProps): JSX.Element {
     isSelectable = true,
     isSelected,
     isSubCell,
+    isGridCell = false,
     SubRowsToggleButtonComponent = DefaultSubRowsToggleButtonComponent,
     onMouseDown,
     onMouseEnter,
@@ -236,12 +274,15 @@ function CellComponent(props: ICellProps): JSX.Element {
     onContextMenu,
   } = props;
   const canToggleSubItems = canToggle(props);
-  const isInteractive = !!(onMouseDown || onMouseEnter || onMouseUp || onContextMenu || canToggleSubItems);
+  const isInteractive = !!(onMouseDown || onMouseEnter || onMouseUp || onContextMenu || canToggleSubItems || isGridCell);
   const handlers = useCellHandlers(props, isInteractive);
 
   const styles = getStyles(style, Boolean(CellContent), colspan);
   const Component = component;
   const dynamicClassName = getClassName ? getClassName(props) : className;
+
+  const isHeader = component === "th";
+  const hasSubItems = !!subItems && subItems.length > 0;
 
   return (
     <Component
@@ -249,6 +290,7 @@ function CellComponent(props: ICellProps): JSX.Element {
       // 1-based, in the whole table and not in the visible window; the row carries `aria-rowindex`
       aria-colindex={index + 1}
       aria-colspan={colspan > 1 ? colspan : undefined}
+      {...(isGridCell ? getGridCellProps(isHeader, rowIndex, index, isSelectable && !!isSelected, hasSubItems, opened) : null)}
       data-testid="table-column"
       className={classNames("table-column", dynamicClassName, {
         selected: isSelected && isSelectable,
@@ -258,6 +300,7 @@ function CellComponent(props: ICellProps): JSX.Element {
       onMouseEnter={onMouseEnter && handlers?.mouseEnter}
       onMouseUp={onMouseUp && handlers?.mouseUp}
       onContextMenu={onContextMenu && handlers?.contextMenu}
+      onKeyDown={isGridCell ? handlers?.keyDown : undefined}
       style={styles.column}
     >
       <div data-testid={`table-cell-wrapper-${id}`} className="table-overflow-wrapper" style={styles.wrapper}>
@@ -265,7 +308,9 @@ function CellComponent(props: ICellProps): JSX.Element {
           className={canToggleSubItems ? "table-cell-container table-cell-container__with-toggle" : "table-cell-container"}
           style={styles.container}
         >
-          {canToggleSubItems && handlers ? <SubRowsToggleButtonComponent onClick={handlers.open} opened={opened} /> : null}
+          {canToggleSubItems && handlers ? (
+            <SubRowsToggleButtonComponent onClick={handlers.open} opened={opened} tabIndex={isGridCell ? -1 : undefined} />
+          ) : null}
           {CellContent ? (
             <CellContent
               key={id}

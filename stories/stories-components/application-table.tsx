@@ -148,13 +148,14 @@ function ApplicationGroupCell({ className, group, style }: GroupCellProps) {
   );
 }
 
-function ApplicationToggle({ opened, onClick }: SubRowsToggleButtonComponentProps) {
+function ApplicationToggle({ opened, onClick, tabIndex }: SubRowsToggleButtonComponentProps) {
   return (
     <button
       type="button"
       className="table-cell-sub-item-toggle"
       data-testid="table-cell-sub-item-toggle"
       aria-expanded={!!opened}
+      tabIndex={tabIndex}
       onClick={onClick}
     >
       {opened ? "▾" : "▸"}
