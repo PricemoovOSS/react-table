@@ -1,36 +1,39 @@
+@use "../variable" as *;
+
 // must have the same value as MAX_ROW_LEVEL in constants.ts
 $max-row-level: 2;
 $max-row-level-1: $max-row-level - 1;
-$bg-color: $light-grey-color;
 
 .table-row {
   color: inherit;
   outline: 0;
   vertical-align: middle;
-  box-shadow: inset 0 1px 0 0 rgba(236, 236, 236, 0.5);
+  box-shadow: inset 0 1px 0 0 var(--rt-row-separator-color, #{$row-separator-color});
 
   &.head {
     .table-column {
-      color: rgba(0, 0, 0, 0.54);
+      color: var(--rt-header-color, #{$header-color});
       font-size: 0.75rem;
       font-weight: 500;
       line-height: 1.3125rem;
     }
+
     .table-group {
       text-align: center;
       padding: 0;
     }
   }
+
   &.elevated-start {
-    box-shadow: 0px 7px 7px -10px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--rt-elevation-start-row-shadow, #{$elevation-start-row-shadow});
   }
 
   &.elevated-absolute {
     position: absolute;
     bottom: 0;
     width: 100%;
-    background-color: white;
-    box-shadow: 0px -2px 7px -6px rgba(0, 0, 0, 0.5);
+    background-color: var(--rt-fixed-background, #{$white-color});
+    box-shadow: var(--rt-elevation-end-row-shadow, #{$elevation-end-row-shadow});
     display: flex;
 
     .table-column {
@@ -41,7 +44,7 @@ $bg-color: $light-grey-color;
   }
 
   &.elevated-absolute ~ .table-row.elevated-absolute {
-    box-shadow: inset 0 1px 0 0 rgba(236, 236, 236, 0.5);
+    box-shadow: inset 0 1px 0 0 var(--rt-row-separator-color, #{$row-separator-color});
   }
 
   &.last-sub-row {
@@ -51,7 +54,7 @@ $bg-color: $light-grey-color;
   }
 
   @for $level from 2 through $max-row-level {
-    $padding: ($level * 30)+5;
+    $padding: ($level * 30) + 5;
     &.sub-row__#{$level} {
       .table-column:first-child::after {
         right: calc(100% - #{$padding}px) !important;
@@ -63,22 +66,24 @@ $bg-color: $light-grey-color;
     .table-column.table-sub-cell:not(.row-span-column) {
       &::before {
         content: "";
-        border-left: solid 1px $bg-color;
+        border-left: solid 1px var(--rt-sub-row-connector-color, #{$sub-row-connector-color});
         position: absolute;
         height: 100%;
         top: 0;
       }
+
       &::after {
         content: "";
-        border-left: solid 1px $bg-color;
+        border-left: solid 1px var(--rt-sub-row-connector-color, #{$sub-row-connector-color});
         position: absolute;
         top: calc(50% - 5px);
         height: 5px;
         width: 10px;
         border-bottom-left-radius: 40px;
-        border-bottom: solid 1px $bg-color;
+        border-bottom: solid 1px var(--rt-sub-row-connector-color, #{$sub-row-connector-color});
         right: 70px;
       }
+
       .table-cell-container {
         padding-left: 30px;
       }
@@ -86,15 +91,17 @@ $bg-color: $light-grey-color;
 
     @for $level from 1 through $max-row-level {
       $padding: ($level * 30);
-      $padding_item: (($level) * 30 + 10);
+      $padding-item: (($level) * 30 + 10);
       &__#{$level} {
         .table-column.table-sub-cell:not(.row-span-column) {
           &::before {
             right: calc(100% - #{$padding}px) !important;
           }
+
           &::after {
-            right: calc(100% - #{$padding_item}px) !important;
+            right: calc(100% - #{$padding-item}px) !important;
           }
+
           .table-cell-container {
             padding-left: #{$padding}px;
           }

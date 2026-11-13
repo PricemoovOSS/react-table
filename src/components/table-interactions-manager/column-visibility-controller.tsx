@@ -34,11 +34,11 @@ export const DumbColumnVisibilityController: React.FunctionComponent<IDumbColumn
 
     const columnsIdsMapping: Record<string, number> = React.useMemo(
       () =>
-        columns.reduce((mapping, column) => {
+        columns.reduce<Record<string, number>>((mapping, column) => {
           mapping[column.id] = column.index;
           return mapping;
         }, {}),
-      [columns]
+      [columns],
     );
 
     const onClose = () => {
@@ -103,7 +103,7 @@ export const DumbColumnVisibilityController: React.FunctionComponent<IDumbColumn
         </Menu>
       </>
     );
-  }
+  },
 );
 
 const ColumnVisibilityController: React.FunctionComponent<IColumnVisibilityControllerProps> = (props) => {

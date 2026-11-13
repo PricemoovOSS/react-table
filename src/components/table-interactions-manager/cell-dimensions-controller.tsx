@@ -48,11 +48,11 @@ export const DumbCellDimensionController: React.FunctionComponent<ICellDimension
     };
 
     const getColumnWidthUpdater = (size: string) => () => {
-      updateCellWidth({ size, value: cellWidthOptions[size] });
+      updateCellWidth({ size, value: (cellWidthOptions as Record<string, number>)[size] });
     };
 
     const getRowHeightUpdater = (size: string) => () => {
-      updateRowHeight({ size, value: rowHeightOptions[size] });
+      updateRowHeight({ size, value: (rowHeightOptions as Record<string, number>)[size] });
     };
     return (
       <>
@@ -103,7 +103,7 @@ export const DumbCellDimensionController: React.FunctionComponent<ICellDimension
         </Menu>
       </>
     );
-  }
+  },
 );
 
 const CellDimensionController: React.FunctionComponent<

@@ -1,10 +1,9 @@
 import * as React from "react";
 import IconButton from "@mui/material/IconButton";
 import Skeleton from "@mui/material/Skeleton";
+import Icon from "@mui/material/Icon";
 import classNames from "classnames";
-import { isEqual } from "lodash";
 
-import { Icon } from "@mui/material";
 import { DEFAULT_ROW_HEIGHT, DEFAULT_COLUMN_WIDTH, DEFAULT_COLSPAN, MouseClickButtons } from "../constants";
 import { IRow } from "./row";
 import { getMouseClickButton } from "../utils/table";
@@ -18,16 +17,13 @@ export interface ICellCoordinates {
 
 export interface IContentCellProps<IDataCoordinates = any> {
   id?: string;
-  /** index of the cell in its row */
   index?: number;
-  /** index of the row of the cell */
   rowIndex?: number;
-  /** relative index of the row of the cell */
   relativeRowIndex?: number;
-  /** determine if we should show a selected cell */
   isSelected?: boolean;
-  /** The coordinates of the data in the data structure */
   dataCoordinates?: IDataCoordinates;
+  /** True while the cell, its row or its column is loading */
+  loading?: boolean;
 }
 
 type CellTag = "td" | "th";
@@ -46,54 +42,40 @@ export interface SubRowsToggleButtonComponentProps {
 
 export interface ICell<IDataCoordinates = any> {
   id: string;
-  /** The CSS class name of the cell. */
+  /** Static CSS class for the cell */
   className?: string;
-  /** The CSS class name getter of the cell. */
+  /** Class getter (computed from cell props at render time) */
   getClassName?: (props: ICell) => string;
-  /** value of the cell */
+  /** Cell text value (used as title attribute and as fallback content) */
   value?: string;
-  /** value of colspan */
+  /** Colspan applied to the underlying `<td>` */
   colspan?: number;
-  /** cell content replacing the display of value */
+  /** Custom component rendered in place of the cell text */
   cellContent?: React.ComponentType<any>;
-  /** props to pass to cellContent */
+  /** Extra props passed to `cellContent` */
   cellContentProps?: object;
-  /** The coordinates of the data in the data structure */
   dataCoordinates?: IDataCoordinates;
-  /** subItem of the cell, constituting a new row */
+  /** When the cell is openable, the rows revealed beneath */
   subItems?: IRow[];
-  /** subItem of the cell, constituting a new row */
   isSelectable?: boolean;
-  /** style given to the cell */
   style?: React.CSSProperties;
-  /** tag name of the cell */
   component?: CellTag;
-  /** loading state of the cell */
   loading?: boolean;
 }
 
 export interface ICellProps extends ICell {
-  /** index of the cell in its row */
   index: number;
-  /** index of the row of the cell */
   rowIndex: number;
-  /** relative index of the row of the cell */
   relativeRowIndex: number;
-  /** determine if we should show a selected cell */
   isSelected?: boolean;
-  /** determine if this cell is opened or not */
+  /** Whether the cell is currently revealing its sub-items */
   opened?: boolean;
-  /** determine if we should show an arrow to open/close the cell subitems */
+  /** Hides the open/close arrow even if the cell has sub-items */
   hideSubItemsOpener?: boolean;
-  /** callback when we are clicking on the cell opener */
-  onCallOpen?: (num: number) => void;
-  /** callback when we are clicking on the cell */
+  onCallOpen?: (cellIndex: number) => void;
   onMouseDown?: (coordinates: ICellCoordinates, mouseClickButton: MouseClickButtons) => void;
-  /** callback when we are hovering into the cell */
   onMouseEnter?: (coordinates: ICellCoordinates) => void;
-  /** callback when we release the mouse button above the cell */
   onMouseUp?: () => void;
-  /** Callback when we try to open the context menu */
   onContextMenu?: (selectionContext: ISelectionContext) => void;
   /**
    * Optional React component used to render a toggle button
@@ -108,189 +90,232 @@ export interface ICellProps extends ICell {
   isSubCell?: boolean;
 }
 
-const defaultCellComponent = "td";
+const DEFAULT_TAG: CellTag = "td";
+const DEFAULT_STYLE: React.CSSProperties = { height: DEFAULT_ROW_HEIGHT, width: DEFAULT_COLUMN_WIDTH };
 
 const DefaultSubRowsToggleButtonComponent = ({ opened, onClick }: SubRowsToggleButtonComponentProps) => {
   return (
-    <IconButton className="table-cell-sub-item-toggle" data-testid="table-cell-sub-item-toggle" onClick={onClick} size="large">
+    <IconButton
+      className="table-cell-sub-item-toggle"
+      data-testid="table-cell-sub-item-toggle"
+      onClick={onClick}
+      size="large"
+      aria-expanded={!!opened}
+      aria-label={opened ? "Collapse sub-rows" : "Expand sub-rows"}
+    >
       <Icon>{opened ? "arrow_drop_down" : "arrow_right"}</Icon>
     </IconButton>
   );
 };
 
-export default class Cell extends React.Component<ICellProps> {
-  static defaultProps = {
-    index: 0,
-    // relativeLevel: 0,
-    style: { height: DEFAULT_ROW_HEIGHT, width: DEFAULT_COLUMN_WIDTH },
-    isSelectable: true,
-    component: defaultCellComponent,
-    colspan: DEFAULT_COLSPAN,
-    SubRowsToggleButtonComponent: DefaultSubRowsToggleButtonComponent,
-  };
-
-  private container = React.createRef<HTMLDivElement>();
-
-  public shouldComponentUpdate(nextProps: ICellProps) {
-    const nextCellProps = { ...nextProps };
-    const cellProps = { ...this.props };
-    const nextStyle = nextCellProps.style;
-    delete nextCellProps.style;
-    const { style } = cellProps;
-    delete cellProps.style;
-    return !shallowEqual(nextCellProps, cellProps) || !isEqual(nextStyle, style);
-  }
-
-  private open = () => {
-    const { index, onCallOpen } = this.props;
-    if (onCallOpen) {
-      onCallOpen(index);
-    }
-  };
-
-  private getStyles = () => {
-    const { cellContent, style, colspan } = this.props;
-    // @ts-ignore we have default values for height and width
-    const { height, width, ...others } = style;
-    const cellHeight = height || DEFAULT_ROW_HEIGHT;
-    let cellWidth = Number(width);
-    // @ts-ignore we have a default value for colspan
-    cellWidth = cellWidth ? cellWidth * colspan : width || DEFAULT_COLUMN_WIDTH;
-    const wrapperStyle = { width: cellWidth, height: cellHeight };
-    const textStyle = !cellContent ? { lineHeight: `${cellHeight}px`, height: cellHeight } : undefined;
-    const columnStyle = {
-      padding: 0,
-      ...others,
-      height: cellHeight,
-      width: cellWidth,
-    };
-    return {
-      wrapper: wrapperStyle,
-      text: textStyle,
-      column: columnStyle,
-    };
-  };
-
-  private onMouseDown = (event: React.MouseEvent<HTMLElement>) => {
-    const { onMouseDown, index, rowIndex } = this.props;
-    if (onMouseDown) {
-      const mouseClickButtonId = getMouseClickButton(event.nativeEvent.button);
-      onMouseDown({ rowIndex, cellIndex: index }, mouseClickButtonId);
-    }
-  };
-
-  private onMouseEnter = () => {
-    const { onMouseEnter, index, rowIndex } = this.props;
-    if (onMouseEnter) {
-      onMouseEnter({ rowIndex, cellIndex: index });
-    }
-  };
-
-  private onMouseUp = () => {
-    const { onMouseUp } = this.props;
-    if (onMouseUp) {
-      onMouseUp();
-    }
-  };
-
-  private onContextMenu = (event: React.MouseEvent<HTMLElement>) => {
-    const { onContextMenu, index, rowIndex } = this.props;
-    if (onContextMenu) {
-      event.preventDefault();
-      const contextCell = { rowIndex, cellIndex: index };
-      const selectionContext: ISelectionContext = {
-        anchorEl: this.container.current,
-        contextCell,
-      };
-      onContextMenu(selectionContext);
-    }
-  };
-
-  public render() {
-    const {
-      id,
-      index,
-      relativeRowIndex,
-      rowIndex,
-      loading,
-      getClassName,
-      className,
-      component,
-      value,
-      opened,
-      subItems,
-      hideSubItemsOpener,
-      cellContent: CellContent,
-      cellContentProps,
-      dataCoordinates,
-      style,
-      colspan,
-      isSelectable,
-      isSelected,
-      isSubCell,
-      SubRowsToggleButtonComponent = DefaultSubRowsToggleButtonComponent,
-    } = this.props;
-    const canToggleSubItems = !hideSubItemsOpener && subItems && subItems.length > 0;
-    const justifyContent = style && style.justifyContent;
-    const styles = this.getStyles();
-    const Component = component || defaultCellComponent;
-    const dynamicClassName = getClassName ? getClassName(this.props) : className;
-    return (
-      <Component
-        key={`cell-${id}`}
-        colSpan={colspan}
-        data-testid="table-column"
-        className={classNames("table-column", dynamicClassName, {
-          selected: isSelected && isSelectable,
-          "table-sub-cell": isSubCell,
-        })}
-        onMouseDown={this.onMouseDown}
-        onMouseEnter={this.onMouseEnter}
-        onMouseUp={this.onMouseUp}
-        onContextMenu={this.onContextMenu}
-        style={styles.column}
-      >
-        {/* Cannot force fixed size on td so need a wrapper */}
-        <div
-          data-testid={`table-cell-wrapper-${id}`}
-          ref={this.container}
-          className="table-overflow-wrapper"
-          style={styles.wrapper}
-        >
-          <div
-            className={classNames("table-cell-container", {
-              "table-cell-container__with-toggle": canToggleSubItems,
-            })}
-            style={{ justifyContent }}
-          >
-            {canToggleSubItems ? <SubRowsToggleButtonComponent onClick={this.open} opened={opened} /> : null}
-            {CellContent ? (
-              <CellContent
-                key={`cell-${id}-cellContent`}
-                value={value}
-                {...cellContentProps}
-                id={id}
-                index={index}
-                rowIndex={rowIndex}
-                relativeRowIndex={relativeRowIndex}
-                isSelected={isSelected}
-                dataCoordinates={dataCoordinates}
-                loading={loading}
-              />
-            ) : (
-              <div style={styles.text} className="cell-value" title={value || ""}>
-                {loading ? (
-                  <div className="cell-skeleton-container" style={styles.text}>
-                    <Skeleton variant="rectangular" width={30} height={15} />
-                  </div>
-                ) : (
-                  value
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </Component>
-    );
-  }
+interface ICellStyles {
+  column: React.CSSProperties;
+  wrapper: React.CSSProperties;
+  container?: React.CSSProperties;
+  text?: React.CSSProperties;
 }
+
+const toLength = (value: string | number) => (typeof value === "number" ? `${value}px` : value);
+
+/**
+ * Padding of the cell: none, but the end padding the last column gets to fill the table.
+ * One shorthand and no `paddingRight` next to it: React cannot remove a longhand safely while
+ * the shorthand stays, the cell would fall back to the padding of the stylesheet.
+ */
+function getPaddingStyle({ padding, paddingRight }: React.CSSProperties): React.CSSProperties {
+  if (padding !== undefined) return paddingRight === undefined ? { padding } : { padding, paddingRight };
+  return { padding: paddingRight ? `0 ${toLength(paddingRight)} 0 0` : 0 };
+}
+
+function computeStyles(style: React.CSSProperties, hasCellContent: boolean, colspan: number): ICellStyles {
+  const { height, width, padding, paddingRight, ...rest } = style;
+  const cellHeight = (height as number) || DEFAULT_ROW_HEIGHT;
+  const numericWidth = Number(width);
+  const cellWidth = numericWidth ? numericWidth * colspan : (width as number) || (DEFAULT_COLUMN_WIDTH as never);
+  return {
+    column: { ...getPaddingStyle({ padding, paddingRight }), ...rest, height: cellHeight, width: cellWidth },
+    wrapper: { width: cellWidth, height: cellHeight },
+    container: style.justifyContent ? { justifyContent: style.justifyContent } : undefined,
+    text: hasCellContent ? undefined : { lineHeight: `${cellHeight}px`, height: cellHeight },
+  };
+}
+
+const stylesCache = new WeakMap<React.CSSProperties, Map<number, ICellStyles>>();
+
+/**
+ * The rows give the same `style` object to the cells of a column: their styles are computed
+ * once, and React finds the same objects from one render to the next.
+ */
+function getStyles(style: React.CSSProperties, hasCellContent: boolean, colspan: number): ICellStyles {
+  let variants = stylesCache.get(style);
+  if (!variants) {
+    variants = new Map();
+    stylesCache.set(style, variants);
+  }
+  const variant = colspan * 2 + (hasCellContent ? 1 : 0);
+  let styles = variants.get(variant);
+  if (!styles) {
+    styles = computeStyles(style, hasCellContent, colspan);
+    variants.set(variant, styles);
+  }
+  return styles;
+}
+
+interface ICellHandlers {
+  open: () => void;
+  mouseDown: (event: React.MouseEvent<HTMLElement>) => void;
+  mouseEnter: () => void;
+  mouseUp: () => void;
+  contextMenu: (event: React.MouseEvent<HTMLElement>) => void;
+}
+
+interface ICellMemory {
+  props: ICellProps;
+  handlers?: ICellHandlers;
+}
+
+const getCoordinates = ({ rowIndex, index = 0 }: ICellProps): ICellCoordinates => ({ rowIndex, cellIndex: index });
+
+const canToggle = ({ subItems, hideSubItemsOpener }: ICellProps) => !hideSubItemsOpener && !!subItems && subItems.length > 0;
+
+/** Handlers of a cell, created once: they read the props of its last render. */
+function createCellHandlers(memory: ICellMemory): ICellHandlers {
+  return {
+    open: () => memory.props.onCallOpen?.(memory.props.index ?? 0),
+    mouseDown: (event) => memory.props.onMouseDown?.(getCoordinates(memory.props), getMouseClickButton(event.nativeEvent.button)),
+    mouseEnter: () => memory.props.onMouseEnter?.(getCoordinates(memory.props)),
+    mouseUp: () => memory.props.onMouseUp?.(),
+    contextMenu: (event) => {
+      const { onContextMenu } = memory.props;
+      if (!onContextMenu) return;
+      event.preventDefault();
+      // the wrapper of the content is the only child of the cell
+      onContextMenu({ anchorEl: event.currentTarget.firstElementChild, contextCell: getCoordinates(memory.props) });
+    },
+  };
+}
+
+/**
+ * Handlers of the cell, if it needs any: most cells of a table without selection need none,
+ * and nothing is allocated for them when they mount at every scroll step.
+ */
+function useCellHandlers(props: ICellProps, isInteractive: boolean): ICellHandlers | undefined {
+  const memoryRef = React.useRef<ICellMemory | null>(null);
+  if (!isInteractive) return undefined;
+  if (!memoryRef.current) memoryRef.current = { props };
+  const memory = memoryRef.current;
+  memory.props = props;
+  if (!memory.handlers) memory.handlers = createCellHandlers(memory);
+  return memory.handlers;
+}
+
+function CellComponent(props: ICellProps): JSX.Element {
+  const {
+    id,
+    index = 0,
+    rowIndex,
+    relativeRowIndex,
+    loading,
+    getClassName,
+    className,
+    component = DEFAULT_TAG,
+    value,
+    opened,
+    cellContent: CellContent,
+    cellContentProps,
+    dataCoordinates,
+    style = DEFAULT_STYLE,
+    colspan = DEFAULT_COLSPAN,
+    isSelectable = true,
+    isSelected,
+    isSubCell,
+    SubRowsToggleButtonComponent = DefaultSubRowsToggleButtonComponent,
+    onMouseDown,
+    onMouseEnter,
+    onMouseUp,
+    onContextMenu,
+  } = props;
+  const canToggleSubItems = canToggle(props);
+  const isInteractive = !!(onMouseDown || onMouseEnter || onMouseUp || onContextMenu || canToggleSubItems);
+  const handlers = useCellHandlers(props, isInteractive);
+
+  const styles = getStyles(style, Boolean(CellContent), colspan);
+  const Component = component;
+  const dynamicClassName = getClassName ? getClassName(props) : className;
+
+  return (
+    <Component
+      colSpan={colspan}
+      // 1-based, in the whole table and not in the visible window; the row carries `aria-rowindex`
+      aria-colindex={index + 1}
+      aria-colspan={colspan > 1 ? colspan : undefined}
+      data-testid="table-column"
+      className={classNames("table-column", dynamicClassName, {
+        selected: isSelected && isSelectable,
+        "table-sub-cell": isSubCell,
+      })}
+      onMouseDown={onMouseDown && handlers?.mouseDown}
+      onMouseEnter={onMouseEnter && handlers?.mouseEnter}
+      onMouseUp={onMouseUp && handlers?.mouseUp}
+      onContextMenu={onContextMenu && handlers?.contextMenu}
+      style={styles.column}
+    >
+      <div data-testid={`table-cell-wrapper-${id}`} className="table-overflow-wrapper" style={styles.wrapper}>
+        <div
+          className={canToggleSubItems ? "table-cell-container table-cell-container__with-toggle" : "table-cell-container"}
+          style={styles.container}
+        >
+          {canToggleSubItems && handlers ? <SubRowsToggleButtonComponent onClick={handlers.open} opened={opened} /> : null}
+          {CellContent ? (
+            <CellContent
+              key={id}
+              value={value}
+              {...cellContentProps}
+              id={id}
+              index={index}
+              rowIndex={rowIndex}
+              relativeRowIndex={relativeRowIndex}
+              isSelected={isSelected}
+              dataCoordinates={dataCoordinates}
+              loading={loading}
+            />
+          ) : (
+            <div style={styles.text} className="cell-value" title={value || ""}>
+              {loading ? (
+                <div className="cell-skeleton-container" style={styles.text}>
+                  <Skeleton variant="rectangular" width={30} height={15} />
+                </div>
+              ) : (
+                value
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </Component>
+  );
+}
+
+const NO_STYLE: React.CSSProperties = {};
+const hasOwn = Object.prototype.hasOwnProperty;
+
+/**
+ * Same props, `style` being compared one level deep (it is rebuilt at every render of the
+ * row). Written without any allocation: it runs for every cell of every row that renders.
+ */
+function arePropsEqual(prev: ICellProps, next: ICellProps): boolean {
+  const keys = Object.keys(prev) as (keyof ICellProps)[];
+  if (keys.length !== Object.keys(next).length) return false;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (!hasOwn.call(next, key)) return false;
+    if (Object.is(prev[key], next[key])) continue;
+    if (key !== "style" || !shallowEqual(prev.style ?? NO_STYLE, next.style ?? NO_STYLE)) return false;
+  }
+  return true;
+}
+
+const Cell = React.memo(CellComponent, arePropsEqual);
+Cell.displayName = "Cell";
+
+export default Cell;
