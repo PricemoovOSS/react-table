@@ -1,0 +1,134 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Introduction" />
+
+# @pricemoov-oss/react-table
+
+React components that render large tables: only the rows and columns on screen are in the page, whatever the
+size of the data.
+
+```tsx
+import { Table } from "@pricemoov-oss/react-table";
+import "@pricemoov-oss/react-table/dist/style/index.css";
+
+<Table id="prices" rows={rows} isVirtualized virtualizerProps={{ fixedRows: [0], fixedColumns: [0] }} />;
+```
+
+## Find your way
+
+{/* An HTML table: MDX does not read Markdown tables without an extra plugin */}
+
+<table>
+  <thead>
+    <tr>
+      <th>Section</th>
+      <th>What it shows</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <strong>Table / Basics</strong>
+      </td>
+      <td>Rows, cells, custom content, sizes, loading state — without virtualization</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Table / Virtualized</strong>
+      </td>
+      <td>Fixed and hidden rows and columns, custom sizes, initial scroll, sizing by the container</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Table / Column groups</strong>
+      </td>
+      <td>One or several rows of group headers, with fixed and hidden columns, custom group cell</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Table / Sub rows</strong>
+      </td>
+      <td>Rows opened under a row, by the user or from outside, custom toggle</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Table / Selection</strong>
+      </td>
+      <td>Selection of cells with the mouse, context menu</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Table / Keyboard navigation</strong>
+      </td>
+      <td>Arrow keys, Home / End, PageUp / PageDown between cells (opt-in)</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Table / Theming</strong>
+      </td>
+      <td>The CSS custom properties that drive reliefs, separators and colors</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Table / Combinations</strong>
+      </td>
+      <td>Everything together — the pages checked by the browser tests</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Interactions</strong>
+      </td>
+      <td>The manager that shares the state of a table (hidden, fixed, cursor) with the components around it</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Cells</strong>
+      </td>
+      <td>Ready-made cell contents: header, editable number, icon, badge</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Building blocks</strong>
+      </td>
+      <td>
+        <code>Virtualizer</code>, <code>Scroller</code>, <code>ResponsiveContainer</code>: the pieces <code>Table</code> is made
+        of, usable alone
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Recipes / Application table</strong>
+      </td>
+      <td>A complete table wired like a data application: manager, groups, pages loaded on scroll</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Recipes / Heavy interactive cells</strong>
+      </td>
+      <td>Several hundred rows and columns of heavy cells, with a meter of what each interaction renders</td>
+    </tr>
+    <tr>
+      <td>
+        <strong>Recipes / Live data</strong>
+      </td>
+      <td>Rows and columns inserted, removed and updated while the table is displayed</td>
+    </tr>
+  </tbody>
+</table>
+
+## How it works
+
+- **The table does not move.** It stays in the window; scrolling changes which rows and columns are rendered,
+  one whole row or column at a time. Headers and fixed items are always aligned.
+- **Fixed items.** Rows fixed at the top and columns fixed on the left are simply rendered first. Rows fixed at
+  the bottom and columns fixed on the right are taken out of the flow and stacked against their edge.
+  A relief shows where the fixed items end.
+- **Indexes.** `virtualizerProps` takes indexes in your data (`rows`). Opened sub rows shift what is on screen,
+  not your indexes.
+- **Everything is replaceable.** Cell content, group cell, sub-rows toggle and context menu are components you
+  can provide; colors, reliefs and separators are CSS custom properties; sizes and thresholds are properties.
+
+## Go further
+
+The guides are in the [`docs`](https://github.com/PricemoovOSS/react-table/tree/master/docs) folder of the
+repository: getting started, API, theming, accessibility, recipes, architecture and migration.
