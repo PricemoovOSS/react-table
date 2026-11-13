@@ -22,6 +22,7 @@ import { DEFAULT_ROW_HEIGHT, ROW_SPAN_WIDTH } from "../constants";
 import { ICell, ICellCoordinates } from "./cell";
 import { IRow, IRowOptions } from "./row";
 import { Group, getGroupBranches } from "../utils/group";
+import { useGridKeyboardNavigation } from "../../hooks/useGridKeyboardNavigation";
 import { useOpenedTrees } from "../../hooks/useOpenedTrees";
 import { sameCustomSizes, sameIndexes, useStableOptions, useStableValue } from "../../hooks/useStableValue";
 import shallowEqual from "../utils/shallowEqual";
@@ -42,6 +43,14 @@ export interface ITableProps<IDataCoordinates = any> extends IElementaryTable<ID
   isSelectable?: boolean;
   isVirtualized?: boolean;
   onOpenedTreesUpdate?: (openedTrees: ITrees) => void;
+  /**
+   * Keyboard navigation between cells (WAI-ARIA grid pattern): arrow keys, Home / End,
+   * PageUp / PageDown. Off by default. Keys typed in a field, a button or any other
+   * element rendered inside a cell are never handled.
+   */
+  keyboardNavigation?: boolean;
+  /** Number of rows to step on PageUp/PageDown when keyboard navigation is enabled. */
+  keyboardPageSize?: number;
   /** Accessible name of the table. Mutually exclusive with `ariaLabelledBy`. */
   ariaLabel?: string;
   /** Id of the element that labels the table (`aria-labelledby`). */
@@ -156,6 +165,7 @@ interface ITableContentProps<IDataCoordinates = any>
   viewportWidth?: number;
   isSelectable: boolean;
   selectionProps?: ISelectionHandlerOptionalProps;
+  keyboardNavigation: boolean;
   ariaLabel?: string;
   ariaLabelledBy?: string;
   onRowOpen: React.ComponentProps<typeof ElementaryTable>["onRowOpen"];
@@ -245,6 +255,7 @@ function TableContentInner<IDataCoordinates = any>(props: ITableContentProps<IDa
       globalColumnProps={sizedColumnProps}
       totalRowCount={rowsLength}
       totalColumnCount={columnsLength}
+      multiSelectable={isSelectable}
     />
   );
 
@@ -274,6 +285,8 @@ function TableInner<IDataCoordinates = any>(
     isSpan,
     onOpenedTreesUpdate,
     groups,
+    keyboardNavigation = false,
+    keyboardPageSize = 10,
     ...elementaryProps
   } = props;
   const {
@@ -384,6 +397,21 @@ function TableInner<IDataCoordinates = any>(
   }, [columnsIndexesIdsMapping, columnsListeners]);
   React.useImperativeHandle(forwardedRef, () => handle, [handle]);
 
+  const gridContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollToCell = React.useCallback((rowIndex: number, columnIndex: number) => {
+    virtualizerRef.current?.scrollToRowIndex(rowIndex);
+    virtualizerRef.current?.scrollToColumnIndex(columnIndex);
+  }, []);
+  const { containerProps: keyboardContainerProps } = useGridKeyboardNavigation(gridContainerRef, {
+    totalRows: rowsLength,
+    totalColumns: columnsLength,
+    pageSize: keyboardPageSize,
+    hiddenRows: hiddenRowsAbsolute,
+    hiddenColumns,
+    scrollToCell: isVirtualized ? scrollToCell : undefined,
+    disabled: !keyboardNavigation,
+  });
+
   const renderContent = (window?: IVirtualizerChildrenProps, viewportWidth?: number) => (
     <TableContent
       {...elementaryProps}
@@ -406,6 +434,7 @@ function TableInner<IDataCoordinates = any>(
       rowsLength={rowsLength}
       isSelectable={isSelectable}
       selectionProps={selectionProps}
+      keyboardNavigation={keyboardNavigation}
       onRowOpen={openRow}
       onRowClose={closeRow}
     />
@@ -444,7 +473,14 @@ function TableInner<IDataCoordinates = any>(
     );
   };
 
-  return renderTable();
+  if (!keyboardNavigation) return renderTable();
+
+  // The container takes the Tab stop and hands the focus over to the active cell.
+  return (
+    <div ref={gridContainerRef} className="grid-keyboard-wrapper" {...keyboardContainerProps}>
+      {renderTable()}
+    </div>
+  );
 }
 
 const Table = React.forwardRef(TableInner) as <IDataCoordinates = any>(
