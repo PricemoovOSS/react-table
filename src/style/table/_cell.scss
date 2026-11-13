@@ -42,6 +42,13 @@
     outline: none;
     position: relative;
 
+    // Keyboard focus indicator (only for keyboard-driven focus, not mouse clicks).
+    // Inset to avoid clipping by overflow:hidden on the inner wrapper.
+    &:focus-visible {
+      outline: 2px solid var(--rt-focus-ring-color, #{$blue-color});
+      outline-offset: -2px;
+    }
+
     &.disabled {
       background-color: rgb(195 195 195 / 17%);
     }

@@ -8,3 +8,6 @@ export type {
   IRowsState as IUseVirtualizerRowsState,
   IColumnState as IUseVirtualizerColumnState,
 } from "./useVirtualizer";
+
+export { useGridKeyboardNavigation } from "./useGridKeyboardNavigation";
+export type { IGridKeyboardNavigationOptions, IGridKeyboardNavigationResult } from "./useGridKeyboardNavigation";
