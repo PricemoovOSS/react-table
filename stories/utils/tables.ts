@@ -487,7 +487,7 @@ export function generateTableWithCustomColspan(
   cellsCount: number,
   subRow = false,
   level = 0,
-  colspanMatrix: any = defaultColspanMatrix(cellsCount)
+  colspanMatrix: any = defaultColspanMatrix(cellsCount),
 ) {
   const rows: IRow[] = Array.from(Array(rowsCount), (_, rowIndex) => {
     const totalColspan = colspanMatrix[rowIndex]
@@ -518,7 +518,7 @@ function generateRowWithCustomColumns(
   cellsCountWithColspan: number,
   subRow: boolean,
   level: number,
-  colspanMatrix: any
+  colspanMatrix: any,
 ) {
   return Array.from(Array(cellsCountWithColspan), (_, cellIndex) => {
     const currentCell = colspanMatrix[rowIndex]
@@ -532,7 +532,7 @@ function generateRowWithCustomColumns(
         subItems:
           subRow && cellIndex === 0
             ? Array.from(Array(cellsCount), (_, rowIndex) =>
-                generateRow(rowIndex, cellsCount, level <= 2, level + 1, currentCell.colspanMatrix)
+                generateRow(rowIndex, cellsCount, level <= 2, level + 1, currentCell.colspanMatrix),
               )
             : [],
       };
@@ -550,7 +550,7 @@ export function generateRow(
   subRow = false,
   level = 0,
   colspanMatrix?: any,
-  subSize = 20
+  subSize = 20,
 ): IRow {
   const cells = Array.from(Array(cellsCount), (_, cellIndex) => {
     const currentCell =
@@ -564,7 +564,7 @@ export function generateRow(
       subItems:
         subRow && cellIndex === 0 && index === 2
           ? Array.from(Array(subSize), (_, rowIndex) =>
-              generateRow(rowIndex, cellsCount, level <= 2, level + 1, colspanMatrix, subSize)
+              generateRow(rowIndex, cellsCount, level <= 2, level + 1, colspanMatrix, subSize),
             )
           : [],
     };
@@ -578,7 +578,7 @@ export function generateRow(
 
 export function generateTable(rowsCount: number, cellsCount: number, props = {}, subRow = false) {
   const rows = Array.from(Array(rowsCount), (_, rowIndex) =>
-    generateRow(rowIndex, cellsCount, subRow, undefined, undefined, rowsCount)
+    generateRow(rowIndex, cellsCount, subRow, undefined, undefined, rowsCount),
   );
   return {
     id: "table-foo",

@@ -1,5 +1,4 @@
 import * as React from "react";
-import { merge } from "lodash";
 import * as memoize from "memoize-one";
 import update from "immutability-helper";
 
@@ -190,8 +189,8 @@ export const addSequentialIndexesToFixedIndexList = ({
   const result = [];
 
   let itemIndex = indexStart;
-  // forward
-  while (itemIndex < maxLength && currentSize <= maxSize) {
+  // forward, until the available size is filled: an item that would start right after it is not visible
+  while (itemIndex < maxLength && currentSize < maxSize) {
     const itemSize = customSizes[itemIndex] || defaultItemSize;
     if (!localIgnoredIndexes[itemIndex]) {
       currentSize += itemSize;
@@ -233,7 +232,7 @@ export const getElevatedIndexes = (
   ignoredIndexes: Record<number, true> = {},
   itemSizes: Record<number, number> = {},
   defaultSize: number,
-  usePrevIndexForLastElevation?: boolean
+  usePrevIndexForLastElevation?: boolean,
 ): IElevateds => {
   const hasOnlyIgnoredItems = visibleItemIndexes.every((itemIndex) => ignoredIndexes[itemIndex] != null);
 
@@ -297,13 +296,34 @@ export const getElevatedIndexes = (
   };
 };
 
+/**
+ * Absolute index (place among the displayed rows, opened sub rows included) of every row,
+ * and the way back. One pass over the rows: it runs each time the rows change.
+ */
 export const getAllIndexesMap = (trees: ITrees = {}, rows: IRow[], root: Nullable<number> = null): IIndexesMap => {
-  const defaultValue = { absolute: {}, relative: {} };
-  return rows
-    ? rows.reduce((currentValue, _, rowIndex) => {
-        return merge(currentValue, getIndexesMap(trees, rowIndex, rows, root));
-      }, defaultValue)
-    : defaultValue;
+  const result: IIndexesMap = { absolute: {}, relative: {} };
+  if (!rows) return result;
+  const addon = root !== null ? root + 1 : 0;
+  let subRowsBefore = 0;
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const absoluteIndex = rowIndex + addon + subRowsBefore;
+    const relativeMap: IRelativeIndex = { index: absoluteIndex };
+    const rowTree = trees[rowIndex];
+    if (rowTree) {
+      const row = rows[rowIndex];
+      const cell = row && row.cells[rowTree.columnIndex];
+      const subRows = cell && cell.subItems;
+      if (subRows && subRows.length > 0) {
+        const subItems = getAllIndexesMap(rowTree.subTrees, subRows, absoluteIndex);
+        Object.assign(result.absolute, subItems.absolute);
+        relativeMap.subItems = subItems.relative;
+      }
+      subRowsBefore += getTreeLength(rowTree, rows);
+    }
+    result.absolute[absoluteIndex] = { index: rowIndex, parentIndex: root };
+    result.relative[rowIndex] = relativeMap;
+  }
+  return result;
 };
 
 const defaultAbsoluteIndex = { parentIndex: -1, index: -1 };
@@ -313,7 +333,7 @@ export const filterRowsByIndexes = (
   absoluteIndexes: Nullable<number[]>,
   absoluteIndexesMap: IAbsoluteIndexesMap,
   rootIndex: Nullable<number>,
-  fixedRowsIndexes: number[] = []
+  fixedRowsIndexes: number[] = [],
 ): [Nullable<number[]>, IRow[]] => {
   if (absoluteIndexes) {
     let onlyFixed = fixedRowsIndexes.length > 0;
@@ -352,20 +372,26 @@ export const filterRowsByIndexes = (
  * @param rows the new computed rows
  * @returns the new opened trees object updated according to the new rows
  */
+/** The tree with its sub trees in sync with the sub rows, or `null` when its row has no sub rows left. */
+function syncOpenedTree(tree: ITree, rows: IRow[]): Nullable<ITree> {
+  const row = rows[tree.rowIndex];
+  const cell = row?.cells[tree.columnIndex];
+  if (!cell?.subItems?.length) return null;
+  if (!tree.subTrees) return tree;
+  const subItems = row.cells.flatMap((rowCell) => rowCell.subItems || []);
+  const subTrees = syncOpenedTreesWithRows(tree.subTrees, subItems);
+  return subTrees === tree.subTrees ? tree : { ...tree, subTrees };
+}
+
+/**
+ * Drops the trees whose row has no sub rows any more. Returns the trees it was given when
+ * nothing has to be dropped: what depends on them is then not computed again.
+ */
 export const syncOpenedTreesWithRows = (openedTrees: ITrees, rows: IRow[] = []): ITrees => {
-  const subTrees = Object.entries(openedTrees).filter(([, tree]) => {
-    const row = rows[tree.rowIndex];
-    const cell = row?.cells[tree.columnIndex];
-    if (!cell?.subItems?.length) {
-      return false;
-    }
-    if (tree.subTrees) {
-      const subItems = row.cells.flatMap((cell) => cell.subItems || []);
-      tree.subTrees = syncOpenedTreesWithRows(tree.subTrees, subItems);
-    }
-    return true;
-  });
-  return Object.fromEntries(subTrees);
+  const entries = Object.entries(openedTrees);
+  const synced = entries.map(([, tree]) => syncOpenedTree(tree, rows));
+  if (synced.every((tree, index) => tree === entries[index][1])) return openedTrees;
+  return Object.fromEntries(entries.flatMap(([key], index) => (synced[index] ? [[key, synced[index]]] : [])));
 };
 
 /**
@@ -381,7 +407,10 @@ export const getRowslength = (openedTrees: ITrees, rows: IRow[]): number => {
 };
 
 export const getTreesLength = (trees: ITrees, rows: IRow[]): number => {
-  return Object.keys(trees).reduce((currentSum, rowIndex) => currentSum + getTreeLength(trees[rowIndex], rows), 0);
+  return Object.keys(trees).reduce<number>(
+    (currentSum, rowIndex) => currentSum + getTreeLength(trees[Number(rowIndex)], rows),
+    0,
+  );
 };
 export const getTreeLength = (tree: ITree, rows: IRow[]): number => {
   const { rowIndex, columnIndex, subTrees } = tree;
@@ -399,7 +428,7 @@ export const getIndexesMap = (trees: ITrees = {}, rowIndex: number, rows: IRow[]
   const result: IIndexesMap = { absolute: {}, relative: {} };
   const treesBeforeIndex = Object.keys(trees).reduce<ITrees>((result, treeRowIndex) => {
     if (parseInt(treeRowIndex) < rowIndex) {
-      result[treeRowIndex] = trees[treeRowIndex];
+      result[Number(treeRowIndex)] = trees[Number(treeRowIndex)];
     }
     return result;
   }, {});
@@ -442,7 +471,7 @@ export const getRootIndex = (absoluteIndex: number, root: Nullable<number>, abso
 export const getRowTreeLength = (
   rowAbsoluteIndex: number,
   absoluteIndexes: number[],
-  absoluteIndexesMap: IAbsoluteIndexesMap
+  absoluteIndexesMap: IAbsoluteIndexesMap,
 ): number => {
   return absoluteIndexes.filter((absoluteIndex) => getRootIndex(absoluteIndex, rowAbsoluteIndex, absoluteIndexesMap) > -1).length;
 };
@@ -455,12 +484,16 @@ export const getRowTreeLength = (
  * @param {number} endIndex the second number.
  * @return {number} An object that's representing the indexes from the start index to the end index
  */
-export const filterIndexes = (indexes: IIndexes, startIndex: number, endIndex: number) => {
-  const result = {};
+export const filterIndexes = <T extends Record<string | number, unknown>>(
+  indexes: T,
+  startIndex: number,
+  endIndex: number,
+): T => {
+  const result = {} as T;
   for (let index = startIndex; index <= endIndex; index += 1) {
-    const value = indexes[index];
+    const value = (indexes as Record<number, unknown>)[index];
     if (value) {
-      result[index] = value;
+      (result as Record<number, unknown>)[index] = value;
     }
   }
   return result;
@@ -496,7 +529,7 @@ export interface CustomSizesElements {
 export const getItemsCustomSizes = (
   elements: Record<number, IColumn | IRowProps> = {},
   fixedElements?: number[],
-  hiddenIndexes: number[] = []
+  hiddenIndexes: number[] = [],
 ): CustomSizesElements => {
   const keys = Object.keys(elements);
   const customSizesElements: CustomSizesElements = {
@@ -511,12 +544,13 @@ export const getItemsCustomSizes = (
     customSizes: {},
   };
   keys.forEach((key) => {
-    const element = elements[key];
+    const idx = Number(key);
+    const element = elements[idx];
     const size = element && element.size;
-    if (!hiddenIndexes.includes(Number(key)) && size) {
-      const isFixed = fixedElements?.includes(Number(key));
+    if (!hiddenIndexes.includes(idx) && size) {
+      const isFixed = fixedElements?.includes(idx);
       const items = isFixed ? customSizesElements.fixed : customSizesElements.scrollable;
-      customSizesElements.customSizes[key] = size;
+      customSizesElements.customSizes[idx] = size;
       items.sum += size;
       items.count += 1;
     }
@@ -535,15 +569,15 @@ export const getFixedRowsIndexes = (
   openedTrees: ITrees,
   relativeIndexesMapping: IRelativeIndexesMap,
   rows: IRow[],
-  fixedRows: number[] | undefined
+  fixedRows: number[] | undefined,
 ): number[] => {
   const newFixedRowsIndexes = (fixedRows && relativeToAbsoluteIndexes(fixedRows, relativeIndexesMapping)) || [];
   return Object.keys(openedTrees).reduce<number[]>((result, rowIndex) => {
-    const { fixSubRows } = rows[rowIndex];
+    const { fixSubRows } = rows[Number(rowIndex)];
     if (fixSubRows) {
-      const { subItems } = relativeIndexesMapping[rowIndex];
+      const { subItems } = relativeIndexesMapping[Number(rowIndex)];
       const rowSubItems = subItems || {};
-      result.push(...Object.keys(rowSubItems).map((subItem) => rowSubItems[subItem].index));
+      result.push(...Object.keys(rowSubItems).map((subItem) => rowSubItems[Number(subItem)].index));
     }
     return result;
   }, newFixedRowsIndexes);
@@ -572,18 +606,19 @@ export const relativeToAbsoluteIndexes = (relativeIndexes: number[] = [], relati
  */
 export const relativeToAbsoluteObject = (
   relativeObject: Record<string, number> = {},
-  relativeMap: IRelativeIndexesMap
+  relativeMap: IRelativeIndexesMap,
 ): Record<string, number> => {
   return Object.keys(relativeObject).reduce<Record<string, number>>((absoluteIndexes, relativeIndex) => {
-    if (relativeMap[relativeIndex]) {
-      absoluteIndexes[relativeMap[relativeIndex].index] = relativeObject[relativeIndex];
+    const idx = Number(relativeIndex);
+    if (relativeMap[idx]) {
+      absoluteIndexes[relativeMap[idx].index] = relativeObject[relativeIndex];
     }
     return absoluteIndexes;
   }, {});
 };
 
 export const getIndexesIdsMapping = (items: INode[]): IIndexesIdsMapping => {
-  return items.reduce((result, item, index) => {
+  return items.reduce<IIndexesIdsMapping>((result, item, index) => {
     result[item.id] = index;
     return result;
   }, {});
@@ -602,7 +637,7 @@ const getRootsRowsIndexes = (rowIndex: number, absoluteIndexesMap: IAbsoluteInde
 export const getCellPath = (
   cellCoordinates: ICellCoordinates,
   absoluteIndexesMap: IAbsoluteIndexesMap,
-  openedTrees: ITrees = {}
+  openedTrees: ITrees = {},
 ): ICellPath => {
   if (!openedTrees || isEmptyObj(openedTrees)) {
     return [cellCoordinates];
@@ -686,32 +721,40 @@ export const generateArray = (startIndex: number, length: number): number[] => {
  * indexToColspan: {0: [0, 1], 1: [2]}
  * colspanToIndex: {0: 0, 1: 0, 2: 1}
  * }
+ *
+ * Cached per-cells-array via WeakMap so multiple rows that point to the same `cells`
+ * array hit the cache (vs. `memoize-one` which only remembers the last call and thrashes
+ * when alternating between two row signatures).
  */
-export const getMappingCellsWithColspan = memoizeFunc((cells: ICell[]): IIndexColspanMapping => {
+const colspanMappingCache = new WeakMap<ICell[], IIndexColspanMapping>();
+export const getMappingCellsWithColspan = (cells: ICell[]): IIndexColspanMapping => {
+  const cached = colspanMappingCache.get(cells);
+  if (cached) return cached;
   let startIndex = 0;
-  return cells.reduce<IIndexColspanMapping>(
-    (result, cell, index) => {
+  const result = cells.reduce<IIndexColspanMapping>(
+    (acc, cell, index) => {
       const colspan = cell.colspan || 1;
       const colspanIndexes = generateArray(startIndex, colspan);
       let isIdentity = true;
-      result.indexToColspan[index] = colspanIndexes;
-      colspanIndexes.reduce<Record<number, number>>((colspanToIndex, colspanIndex) => {
+      acc.indexToColspan[index] = colspanIndexes;
+      colspanIndexes.reduce<IColspanToIndexMapping>((colspanToIndex, colspanIndex) => {
         colspanToIndex[colspanIndex] = index;
         isIdentity = isIdentity && colspanIndex === index;
         return colspanToIndex;
-      }, result.colspanToIndex);
+      }, acc.colspanToIndex);
       startIndex += colspan;
-      // @ts-ignore  Type 'boolean' is not assignable to type 'true' (only for tests)
-      result.isIdentity = result.isIdentity && isIdentity;
-      return result;
+      acc.isIdentity = (acc.isIdentity && isIdentity) as true;
+      return acc;
     },
     {
       isIdentity: true,
       indexToColspan: {},
       colspanToIndex: {},
-    }
+    },
   );
-});
+  colspanMappingCache.set(cells, result);
+  return result;
+};
 
 /**
  * example :
@@ -724,11 +767,11 @@ export const getMappingCellsWithColspan = memoizeFunc((cells: ICell[]): IIndexCo
  */
 export const getColspanValues = (
   indexes: number[],
-  colspanToIndexMapping: IColspanToIndexMapping
+  colspanToIndexMapping: IColspanToIndexMapping,
 ): [Nullable<number[]>, Nullable<IColspanIndexWithValue>] => {
   const colspanIndexes = new Set<number>();
   if (indexes) {
-    const colspanIndexWithValue = indexes.reduce((result, index) => {
+    const colspanIndexWithValue = indexes.reduce<IColspanIndexWithValue>((result, index) => {
       const currentIndex = colspanToIndexMapping[index];
       if (currentIndex !== undefined) {
         const colspanValue = result[currentIndex] || 0;
@@ -774,27 +817,26 @@ export const getDenseColumns = memoizeFunc(
     }
     return denseColumns;
   },
-  (args: any, newArgs: any) => shallowEqual(args, newArgs)
+  (args: any, newArgs: any) => shallowEqual(args, newArgs),
 );
 
 const scrollDivStyle = "width: 1337px; height: 1337px; position: absolute; left: -9999px; overflow: scroll;";
 
-export const getScrollbarSize = () => {
-  const { body } = document;
+/**
+ * Size of the scroll bars of the browser, or `undefined` while it cannot be known: without a
+ * document, or in a document that is not displayed (the element that measures it has no box).
+ */
+export function measureScrollbarSize(): number | undefined {
+  if (typeof document === "undefined" || !document.body) return undefined;
   const scrollDiv = document.createElement("div");
-
-  // Append element with defined styling
   scrollDiv.setAttribute("style", scrollDivStyle);
-  body.appendChild(scrollDiv);
-
-  // Collect width of scrollbar
-  const scrollbarSize = scrollDiv.offsetWidth - scrollDiv.clientWidth;
-
-  // Remove element
-  body.removeChild(scrollDiv);
-
+  document.body.appendChild(scrollDiv);
+  const scrollbarSize = scrollDiv.offsetWidth > 0 ? scrollDiv.offsetWidth - scrollDiv.clientWidth : undefined;
+  document.body.removeChild(scrollDiv);
   return scrollbarSize;
-};
+}
+
+export const getScrollbarSize = (): number => measureScrollbarSize() ?? 0;
 
 /**
  * ex itemsLength=4; itemsSizes={ 0:40 }; defaultCellSize=10; hiddenItems=[1] =>
@@ -805,11 +847,20 @@ export const getScrollbarSize = () => {
  * @param hiddenItems hidden items (size == 0)
  * @returns
  */
+/**
+ * The indexes that exist, once each. Returns the given array when there is nothing to remove:
+ * an index beyond the data would get room in the window, a repeated one would be rendered twice.
+ */
+export function getValidIndexes(indexes: number[], length: number): number[] {
+  const isValid = (index: number, position: number) => index >= 0 && index < length && indexes.indexOf(index) === position;
+  return indexes.every(isValid) ? indexes : indexes.filter(isValid);
+}
+
 export const getIndexScrollMapping = (
   itemsLength: number,
   itemsSizes: Record<number, number> = {},
   defaultItemSize: number,
-  hiddenItems: number[]
+  hiddenItems: number[],
 ): number[] => {
   const result: number[] = [0];
   for (let i = 1; i < itemsLength; i++) {
@@ -818,6 +869,44 @@ export const getIndexScrollMapping = (
   }
   return result;
 };
+
+/**
+ * Size of the scroll range. The window starts on a whole item: where the items end, the last one
+ * is cut by what the first one shows before. The range then goes on to the next item, from which
+ * the last ones are entirely displayed, unless the cut is the margin or the rounding of the window.
+ */
+export function getVirtualSizeReachingLastWindow(
+  itemsLength: number,
+  itemsSizes: Record<number, number> = {},
+  containerSize: number,
+  {
+    virtualSize,
+    ignoredIndexes,
+    visibleFixedItems,
+    scrollableItemsSize = 0,
+    scrollableCustomSize = 0,
+    itemIndexesScrollMapping,
+  }: VirtualizerCache,
+): number {
+  const itemsEnd = virtualSize - containerSize;
+  if (scrollableItemsSize <= 0 || itemsEnd <= 0) return virtualSize;
+
+  let firstItem: number | undefined;
+  let nextItem: number | undefined;
+  let roundedItems = visibleFixedItems.filter((index) => !itemsSizes[index]).length;
+  for (let index = itemsLength - 1; index >= 0 && firstItem === undefined; index--) {
+    if (ignoredIndexes[index]) continue;
+    if (!itemsSizes[index]) roundedItems += 1;
+    if (itemIndexesScrollMapping[index] <= itemsEnd) firstItem = index;
+    else nextItem = index;
+  }
+  if (firstItem === undefined || nextItem === undefined) return virtualSize;
+
+  const cut = itemsEnd - itemIndexesScrollMapping[firstItem];
+  // the rounding only explains the cut when every scrolling item has the rounded size
+  const tolerance = scrollableCustomSize > 0 ? ERROR_MARGIN : Math.max(ERROR_MARGIN, roundedItems);
+  return cut > tolerance ? itemIndexesScrollMapping[nextItem] + containerSize : virtualSize;
+}
 
 /**
  *
@@ -861,11 +950,14 @@ export const getVirtualizerCache = ({
   cache.itemsCount =
     itemsCount !== undefined ? itemsCount : Math.floor(scrollableItemsSize / minItemSize + fixedCustomSizesItems.count);
 
-  /** Items size for the items without manual specified size */
+  /**
+   * Items size for the items without manual specified size. A window too small for one item
+   * keeps the minimal size: with a size of 0, every item of the data would fit in it.
+   */
   cache.itemSize =
     cache.itemsCount > fixedCustomSizesItems.count
       ? Math.ceil(scrollableItemsSize / (cache.itemsCount - fixedCustomSizesItems.count))
-      : 0;
+      : minItemSize;
 
   /** The size of the table if all items are displayed */
   cache.virtualSize =
@@ -897,6 +989,8 @@ function interpolationSearch(arr: number[], value: number) {
     else high = mid;
   }
 
+  // the last item too can be the first one of the window: it is, when it does not fit after the previous one
+  if (value >= arr[high]) return high;
   if (value >= arr[low]) return low;
   else return arr.length - 1;
 }
@@ -920,7 +1014,7 @@ export const getVisibleItemIndexes = (
     ignoredIndexes,
     scrollableItemsSize = 0,
     itemSize,
-  }: VirtualizerCache
+  }: VirtualizerCache,
 ): number[] => {
   const scrollIndex = interpolationSearch(itemIndexesScrollMapping, scrollValue);
 

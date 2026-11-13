@@ -1,5 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
-
 import { getStringNumberWithoutTrailingZeros } from "../../src/components/utils";
 
 describe("getStringNumberWithoutTrailingZeros", () => {

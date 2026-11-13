@@ -1,4 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
 import * as React from "react";
 import { cleanup, fireEvent } from "@testing-library/react";
 
@@ -75,7 +74,7 @@ describe("Selection behaviour", () => {
           isDisabledVerticalSelection: true,
           isDisabledHorizontalSelection: false,
         }}
-      />
+      />,
     );
     const rows = getRows();
     const firstCell = getCellsOfRow(rows[0])[4];
@@ -96,7 +95,7 @@ describe("Selection behaviour", () => {
           isDisabledVerticalSelection: false,
           isDisabledHorizontalSelection: true,
         }}
-      />
+      />,
     );
     const rows = getRows();
     const firstCell = getCellsOfRow(rows[0])[4];
@@ -116,7 +115,7 @@ describe("Selection behaviour", () => {
         selectionProps={{
           menuComponent: MyTableSelectionMenu,
         }}
-      />
+      />,
     );
     const rows = getRows();
     const firstCell = getCellsOfRow(rows[0])[4];
