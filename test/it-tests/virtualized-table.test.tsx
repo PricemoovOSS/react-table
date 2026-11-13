@@ -1,10 +1,9 @@
-/// <reference path="../typings/tests-entry.d.ts" />
 import * as React from "react";
 import { cleanup, fireEvent, getByTestId, getByText } from "@testing-library/react";
 
 import { customRender } from "../tests-utils/react-testing-library-utils";
 import { generateTable, generateTableWithCustomColspan, generateRow } from "../../stories/utils/tables";
-import Table, { ITableProps } from "../../src/components/table/table";
+import Table, { ITableProps, ITableHandle } from "../../src/components/table/table";
 import { getCellsOfRow, getRows } from "../tests-utils/table";
 import { ROW_SPAN_WIDTH } from "../../src/components/constants";
 import { IRow } from "../../src/components/table/row";
@@ -60,13 +59,13 @@ describe("virtualized table component", () => {
           rowsCount: 8,
           columnsCount: 10,
         }}
-      />
+      />,
     );
     const rows = getRows();
     const header = getRows(true);
     expect(rows).toHaveLength(7);
     expect(header).toHaveLength(1);
-    expect(getCellsOfRow(rows[0])).toHaveLength(11);
+    expect(getCellsOfRow(rows[0])).toHaveLength(10);
     cleanup();
   });
 
@@ -81,13 +80,13 @@ describe("virtualized table component", () => {
           fixedRows: [0, 8],
           fixedColumns: [0, 4],
         }}
-      />
+      />,
     );
     const rows = getRows();
     const header = getRows(true);
     expect(rows).toHaveLength(7);
     expect(header).toHaveLength(1);
-    expect(getCellsOfRow(rows[0])).toHaveLength(11);
+    expect(getCellsOfRow(rows[0])).toHaveLength(10);
     cleanup();
   });
 
@@ -105,11 +104,11 @@ describe("virtualized table component", () => {
           fixedRows: [0, 8],
           fixedColumns: [0, 4],
         }}
-      />
+      />,
     );
     const rows = getRows();
     const header = getRows(true);
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(3);
     expect(header).toHaveLength(1);
     expect(getCellsOfRow(rows[0])).toHaveLength(5);
     cleanup();
@@ -126,7 +125,7 @@ describe("virtualized table component", () => {
           rowsCount: 8,
           columnsCount: 10,
         }}
-      />
+      />,
     );
     fireEvent.scroll(getByTestId(container, "scroller-container"), {
       target: { scrollTop: 825 },
@@ -150,7 +149,7 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 19],
         }}
-      />
+      />,
     );
     let rows = getRows();
     let header = getRows(true);
@@ -184,7 +183,7 @@ describe("virtualized table component", () => {
           rowsCount: 8,
           columnsCount: 10,
         }}
-      />
+      />,
     );
     fireEvent.scroll(getByTestId(container, "scroller-container"), {
       target: { scrollLeft: 1000 },
@@ -208,14 +207,14 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedColumns: [0, 19],
         }}
-      />
+      />,
     );
     let cellsOfRow = getCellsOfRow(getRows()[0]);
 
     expect(cellsOfRow[0].textContent).toEqual("(1,0)");
     expect(cellsOfRow[1].textContent).toEqual("(1,1)");
     expect(cellsOfRow[8].textContent).toEqual("(1,8)");
-    expect(cellsOfRow[10].textContent).toEqual("(1,19)");
+    expect(cellsOfRow[9].textContent).toEqual("(1,19)");
 
     fireEvent.scroll(getByTestId(container, "scroller-container"), {
       target: { scrollLeft: 1100 },
@@ -242,7 +241,7 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 19],
         }}
-      />
+      />,
     );
 
     let rows = getRows();
@@ -280,7 +279,7 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 19],
         }}
-      />
+      />,
     );
 
     let rows = getRows();
@@ -330,7 +329,7 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 19],
         }}
-      />
+      />,
     );
 
     let rows = getRows();
@@ -380,7 +379,7 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 2, 19],
         }}
-      />
+      />,
     );
 
     let rows = getRows();
@@ -442,7 +441,7 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 19],
         }}
-      />
+      />,
     );
     const rows = getRows();
     const header = getRows(true);
@@ -465,13 +464,13 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 19],
         }}
-      />
+      />,
     );
     let rows = getRows();
     let header = getRows(true);
     expect(rows).toHaveLength(7);
     expect(header).toHaveLength(1);
-    expect(getCellsOfRow(rows[1])).toHaveLength(11);
+    expect(getCellsOfRow(rows[1])).toHaveLength(10);
     // scroll to the max left
     fireEvent.scroll(getByTestId(container, "scroller-container"), {
       target: { scrollLeft: 1000 },
@@ -499,13 +498,13 @@ describe("virtualized table component", () => {
           rowsCount: 8,
           columnsCount: 10,
         }}
-      />
+      />,
     );
     let rows = getRows();
     let header = getRows(true);
     expect(rows).toHaveLength(7);
     expect(header).toHaveLength(1);
-    expect(getCellsOfRow(rows[1])).toHaveLength(11);
+    expect(getCellsOfRow(rows[1])).toHaveLength(10);
     // scroll to the max left
     fireEvent.scroll(getByTestId(container, "scroller-container"), {
       target: { scrollLeft: 1000 },
@@ -533,13 +532,13 @@ describe("virtualized table component", () => {
           rowsCount: 8,
           columnsCount: 10,
         }}
-      />
+      />,
     );
     let rows = getRows();
     let header = getRows(true);
     expect(rows).toHaveLength(7);
     expect(header).toHaveLength(1);
-    expect(getCellsOfRow(rows[1])).toHaveLength(11);
+    expect(getCellsOfRow(rows[1])).toHaveLength(10);
     // scroll to the max left
     fireEvent.scroll(getByTestId(container, "scroller-container"), {
       target: { scrollLeft: 1000 - ROW_SPAN_WIDTH },
@@ -572,7 +571,7 @@ describe("virtualized table component", () => {
             columnIndex: 30,
           },
         }}
-      />
+      />,
     );
 
     /** Simulate a scroll action to display the third column that is not fixed */
@@ -601,7 +600,7 @@ describe("virtualized table component", () => {
             rowIndex: 30,
           },
         }}
-      />
+      />,
     );
 
     /** Simulate a scroll action to display the third row that is not fixed */
@@ -629,12 +628,12 @@ describe("virtualized table component", () => {
             rowIndex: 15,
           },
         }}
-      />
+      />,
     );
     fireEvent.scroll(getByTestId(container, "scroller-container"));
     const rows = getRows();
     expect(rows).toHaveLength(8);
-    expect(getCellsOfRow(rows[0])).toHaveLength(11);
+    expect(getCellsOfRow(rows[0])).toHaveLength(10);
     expect(getCellsOfRow(rows[0])[1].textContent).toEqual("(15,21)");
     cleanup();
   });
@@ -650,13 +649,13 @@ describe("virtualized table component", () => {
           rowsCount: 8,
           columnsCount: 10,
         }}
-      />
+      />,
     );
     let rows = getRows();
     let header = getRows(true);
     expect(rows).toHaveLength(7);
     expect(header).toHaveLength(1);
-    expect(getCellsOfRow(rows[0])).toHaveLength(11);
+    expect(getCellsOfRow(rows[0])).toHaveLength(10);
     expect(getCellsOfRow(rows[0])[0].textContent).toEqual("(1,0)");
 
     const updateProps = (props: ITableProps) => rerender(<Table {...props} />);
@@ -697,7 +696,7 @@ describe("virtualized table component", () => {
           hiddenColumns: [1, 5],
           hiddenRows: [1, 5, 6],
         }}
-      />
+      />,
     );
 
     let rows = getRows();
@@ -820,9 +819,9 @@ describe("virtualized table component", () => {
     const firstColumnId = "(0,26)-0";
     const secondColumnId = "(0,39)-0";
     const TableColumnsRowsController = () => {
-      const table = React.useRef<Table>(null);
+      const table = React.useRef<ITableHandle>(null);
       const goToColumnId = (columnId: string) => () => {
-        table.current && table.current.goToColumnId(columnId);
+        if (table.current) table.current.goToColumnId(columnId);
       };
 
       return (
@@ -921,7 +920,7 @@ describe("virtualized table component", () => {
           fixedRows: [0, 2, 19],
           fixedColumns: [0],
         }}
-      />
+      />,
     );
 
     let rows = getRows();
@@ -966,7 +965,7 @@ describe("virtualized table component", () => {
           columnsCount: 10,
           fixedRows: [0, 2, 99],
         }}
-      />
+      />,
     );
 
     let rows = getRows();

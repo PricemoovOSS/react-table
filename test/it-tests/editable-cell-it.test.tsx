@@ -1,5 +1,4 @@
 /* eslint-disable  @typescript-eslint/no-empty-function */
-/// <reference path="../typings/tests-entry.d.ts" />
 import * as React from "react";
 import { fireEvent } from "@testing-library/react";
 

@@ -1,7 +1,6 @@
 .scroll-controlller {
   display: flex;
-  justify-content: center;
-  align-content: center;
+  place-content: center center;
 
   &__field {
     width: 275px !important;

@@ -1,6 +1,7 @@
 .row-span-column {
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+
   .row-span-container {
     display: flex;
     align-items: center;
@@ -11,6 +12,7 @@
 
     .row-span-text {
       text-transform: uppercase;
+
       &.vertical {
         display: inline-table;
         writing-mode: vertical-lr;

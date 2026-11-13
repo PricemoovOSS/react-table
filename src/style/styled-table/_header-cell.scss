@@ -1,3 +1,5 @@
+@use "../variable" as *;
+
 .header-cell {
   margin-top: 12px;
   height: 90%;
@@ -55,6 +57,7 @@
 
   &.header-cell-current {
     margin-top: 0;
+
     .header-cell-value {
       border-bottom: solid 3px $mint-color;
     }
@@ -64,6 +67,7 @@
 .small-table {
   .header-cell.header-cell-current {
     margin-top: 15px;
+
     .header-cell-bubble,
     .header-cell-line {
       display: none;

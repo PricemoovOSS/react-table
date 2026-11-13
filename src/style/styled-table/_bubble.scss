@@ -1,3 +1,5 @@
+@use "../variable" as *;
+
 .bubble-container {
   display: flex;
   flex-direction: column;
@@ -11,10 +13,7 @@
   .bubble-circle {
     pointer-events: none;
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
 
     .bubble-circle-main {
       stroke: $icon-grey-color;

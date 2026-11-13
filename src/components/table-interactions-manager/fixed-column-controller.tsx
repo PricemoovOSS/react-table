@@ -33,7 +33,7 @@ export const DumbFixedColumnController: React.FunctionComponent<IDumbFixedColumn
     };
 
     return children({ toggleFixedColumnId, isFixed });
-  }
+  },
 );
 
 const FixedColumnController: React.FunctionComponent<IFixedColumnControllerProps> = (props) => {

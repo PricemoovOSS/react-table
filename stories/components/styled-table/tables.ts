@@ -1,4 +1,5 @@
 import { IRow } from "../../../src/components/table/row";
+import { ICell } from "../../../src/components/table/cell";
 import HeaderCell from "../../../src/components/styled-table/header-cell";
 
 const indicatorNames = [
@@ -34,7 +35,7 @@ const indicatorNames = [
 
 const text = "Lorem Ipsum is that it has a more-or-less normal";
 
-export function getTable(cells = {}) {
+export function getTable(cells: Record<number, Record<number, Partial<ICell>>> = {}) {
   const weeks = Array.from(Array(52), (_, rowIndex) => ({
     id: rowIndex < 9 ? `0${rowIndex + 1}` : `${rowIndex + 1}`,
     value: `W${rowIndex + 1}${rowIndex === 3 ? text : ""}`,
@@ -61,7 +62,7 @@ export function getTable(cells = {}) {
         subtitle: "1 éphéméride",
         value: week.value,
       },
-    })
+    }),
   );
   const rows: IRow[] = [headerRow];
 
@@ -85,8 +86,8 @@ export function getTable(cells = {}) {
   });
 
   Object.keys(cells).forEach((row) => {
-    Object.keys(cells[row]).forEach((cell) => {
-      rows[row].cells[cell] = cells[row][cell];
+    Object.keys(cells[Number(row)]).forEach((cell) => {
+      rows[Number(row)].cells[Number(cell)] = { ...rows[Number(row)].cells[Number(cell)], ...cells[Number(row)][Number(cell)] };
     });
   });
 

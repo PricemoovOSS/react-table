@@ -26,7 +26,7 @@ export interface IMenuAction {
   id: string;
   title: string;
   component: React.ComponentType<any>;
-  menuItem?: React.ComponentType<{ children: React.ReactNode }>;
+  menuItem?: React.ComponentType<IMenuItemProps>;
 }
 
 export interface ITableSelectionMenuProps extends IMenuProps {

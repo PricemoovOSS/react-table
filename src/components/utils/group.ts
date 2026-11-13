@@ -7,9 +7,25 @@ export interface Group {
   subGroups?: Group[];
 }
 
+/** Place of a group cell whose columns are fixed at the end: out of the flow, like them. */
+export interface GroupFixedEndLayout {
+  /** Distance to the end edge of the table */
+  right: number;
+  width: number;
+}
+
 export interface GroupBranch extends Group {
   size: number;
   subGroups?: GroupBranch[];
+  /** Set when the columns of the group are fixed at the end of the table */
+  fixedEnd?: GroupFixedEndLayout;
+  /** Set when the group ends with the last column fixed at the start: it carries the relief */
+  isFixedStartEdge?: boolean;
+}
+
+/** A visible column fixed at the end of the table */
+export interface FixedEndColumn extends GroupFixedEndLayout {
+  index: number;
 }
 
 export const DEFAULT_GROUP_ID = "default-group-id";
@@ -33,7 +49,7 @@ export function getGroupBranches(groups: Group[] = []): {
   const depth = equalizeGroupDepths(clonedGroups);
 
   const branches = groupsToBranches(clonedGroups);
-  const groupBranches = branches.reduce((acc, branche) => {
+  const groupBranches = branches.reduce<Record<string, GroupBranch>>((acc, branche) => {
     const leaves = getLeaves(branche);
     acc[leaves[0].id] = branche;
     return acc;
@@ -78,17 +94,74 @@ export function getMergedBranches(branches: GroupBranch[]): GroupBranch[] {
 export function getColumnBranches(
   groupBranches: Record<string, GroupBranch>,
   columns: IColumns = {},
-  visibleColumnIndexes: number[] = []
+  visibleColumnIndexes: number[] = [],
 ): GroupBranch[] {
   return visibleColumnIndexes.reduce<GroupBranch[]>((acc, cellIndex) => {
     const column = columns[cellIndex];
-    const groupId = column?.groupId || DEFAULT_GROUP_ID;
-    const branche = groupBranches[groupId];
+    // A column whose group is not (or no longer) in the groups goes with the columns without group:
+    // left out, it would shift every group on its right by one column
+    const branche = groupBranches[column?.groupId || DEFAULT_GROUP_ID] ?? groupBranches[DEFAULT_GROUP_ID];
     if (branche) {
       acc.push(cloneDeep(branche));
     }
     return acc;
   }, []);
+}
+
+/**
+ * Groups to display above the visible columns. A group never spans both the columns of the
+ * flow and the ones fixed at the end: the latter get their own cells, placed like them.
+ * @param groupBranches raw branches
+ * @param columns columns options
+ * @param visibleColumnIndexes the current visible cell indexes
+ * @param fixedEndColumns the visible columns fixed at the end, in display order
+ * @param lastFixedStartColumn the last column fixed at the start, if any
+ */
+export function getVisibleGroups(
+  groupBranches: Record<string, GroupBranch>,
+  columns: IColumns = {},
+  visibleColumnIndexes: number[] = [],
+  fixedEndColumns: FixedEndColumn[] = [],
+  lastFixedStartColumn?: number,
+): GroupBranch[] {
+  const fixedIndexes = fixedEndColumns.map((column) => column.index);
+  const flowIndexes = visibleColumnIndexes.filter((index) => !fixedIndexes.includes(index));
+  const flowGroups = getMergedBranches(getColumnBranches(groupBranches, columns, flowIndexes));
+  if (lastFixedStartColumn !== undefined) markFixedStartEdge(flowGroups, flowIndexes.indexOf(lastFixedStartColumn));
+  if (fixedEndColumns.length === 0) return flowGroups;
+  const fixedGroups = getMergedBranches(getColumnBranches(groupBranches, columns, fixedIndexes));
+  setFixedEndLayout(fixedGroups, fixedEndColumns);
+  return [...flowGroups, ...fixedGroups];
+}
+
+/** Marks, at each depth, the group that ends exactly with the column at `position`. */
+function markFixedStartEdge(groups: GroupBranch[], position: number) {
+  let start = 0;
+  groups.some((group) => {
+    const end = start + group.size;
+    if (position >= start && position < end) {
+      group.isFixedStartEdge = position === end - 1;
+      if (group.subGroups) markFixedStartEdge(group.subGroups, position - start);
+      return true;
+    }
+    start = end;
+    return false;
+  });
+}
+
+/** Each group covers `size` columns, in order: its place is the one of these columns. */
+function setFixedEndLayout(groups: GroupBranch[], columns: FixedEndColumn[]) {
+  let start = 0;
+  groups.forEach((group) => {
+    const groupColumns = columns.slice(start, start + group.size);
+    start += group.size;
+    if (groupColumns.length === 0) return;
+    group.fixedEnd = {
+      right: groupColumns[groupColumns.length - 1].right,
+      width: groupColumns.reduce((width, column) => width + column.width, 0),
+    };
+    if (group.subGroups) setFixedEndLayout(group.subGroups, groupColumns);
+  });
 }
 
 function equalizeGroupDepths(groups: Group[], depth = 0): number {

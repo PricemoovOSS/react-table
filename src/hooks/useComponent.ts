@@ -4,12 +4,12 @@ export interface ComponentRef<Component = any> {
   current?: Component;
 }
 
-export type MutableRefComponent<Component = any> = (element: Component) => void;
+export type MutableRefComponent<Component = any> = (element: Component | null) => void;
 
 const useComponent = <Component = any>(): [MutableRefComponent<Component>, ComponentRef<Component>, () => void] => {
   const [component, setComponent] = React.useState<ComponentRef>({ current: undefined });
-  const componentRef: MutableRefComponent = React.useCallback((element: Component) => {
-    setComponent({ current: element });
+  const componentRef: MutableRefComponent<Component> = React.useCallback((element: Component | null) => {
+    setComponent({ current: element ?? undefined });
   }, []);
 
   const [componentUpdated, setComponentUpdated] = React.useState<Date>();

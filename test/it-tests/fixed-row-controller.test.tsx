@@ -1,4 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
 import { fireEvent, queryByText } from "@testing-library/react";
 
 import FixedRowController from "../../src/components/table-interactions-manager/fixed-row-controller";
@@ -45,7 +44,7 @@ describe("FixedColumnController component", () => {
             );
           }}
         </TableInteractionsContext.Consumer>
-      </TabeInteractionManager>
+      </TabeInteractionManager>,
     );
 
     const pinBtn = getByTestId("pin-column");

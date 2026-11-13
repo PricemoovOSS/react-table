@@ -1,5 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
-
 import { IColumns } from "../../src/components";
 import { GroupBranch, getColumnBranches, getGroupBranches, getMergedBranches } from "../../src/components/utils";
 

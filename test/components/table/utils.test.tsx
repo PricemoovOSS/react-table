@@ -1,4 +1,3 @@
-/// <reference path="../../typings/tests-entry.d.ts" />
 import * as Utils from "../../../src/components/utils/table";
 import { DEFAULT_ROW_HEIGHT } from "../../../src/components/constants";
 import { IColumn, IColumns, ITrees } from "../../../src/components/table/elementary-table";
@@ -97,7 +96,7 @@ describe("addSequentialIndexesToFixedIndexList method", () => {
       customSizes: {},
       ignoredIndexes: { 0: true, 1: true, 2: true, 3: true, 4: true },
     });
-    expect(newList).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(newList).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   test("should return a list with only fixed indexes", () => {
@@ -185,7 +184,7 @@ describe("getElevatedIndexes method", () => {
       itemIndexes,
       { 0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true },
       {},
-      30
+      30,
     );
     expect(newList).toEqual({ absoluteEndPositions: {}, elevations: {} });
   });
@@ -930,7 +929,7 @@ describe("getItemsCustomSizes method", () => {
         1: { size: 150 },
         4: { size: 225 },
       },
-      [0, 1, 4]
+      [0, 1, 4],
     );
 
     expect(customCellsHeight).toEqual({

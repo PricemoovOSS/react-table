@@ -1,18 +1,15 @@
 import * as React from "react";
 import TextField from "@mui/material/TextField";
-import * as NumberFormat from "react-number-format";
+import { NumericFormat, NumberFormatValues } from "react-number-format";
 import classnames from "classnames";
 
 import { IContentCellProps } from "../table/cell";
 import { Nullable } from "../typing";
-import { getStringNumberWithoutTrailingZeros } from "../utils";
-
-// @ts-ignore https://github.com/s-yadav/react-number-format/issues/180
-const NumberFormatComponent = NumberFormat.default || NumberFormat;
+import { getStringNumberWithoutTrailingZeros } from "../utils/common";
 
 export const EDITED_CELL_CLASSNAME = "edited-cell";
 export const KEYCODE_ENTER = 13;
-const minInputWidth = 20; // Equal to the minimum editable cell underline width
+const MIN_INPUT_WIDTH = 20;
 
 export interface IMask {
   decimals: number;
@@ -20,15 +17,13 @@ export interface IMask {
   is_negative: boolean;
 }
 
-/**
- * initial_value is required to differentiate
- * the case when input is set to value "0"
- * and the case when input isn't setted yet and the value is "null"
- *
- * If input is cleared, value is set to initial_value
- */
 export interface IEdiTableCellProps extends IContentCellProps {
   isEdited: boolean;
+  /**
+   * Required to differentiate the case where the input is set to "0" and the case
+   * where the input has not been set yet (value is `null`). When the input is cleared,
+   * the value falls back to `initial_value`.
+   */
   initial_value: Nullable<number>;
   value: Nullable<number>;
   mask: IMask;
@@ -38,180 +33,151 @@ export interface IEdiTableCellProps extends IContentCellProps {
   validateValue?: (value: Nullable<number>) => boolean;
 }
 
-interface IState {
-  inputValue: string;
-  /** determine if the cell is focused */
-  isFocused: boolean;
-  /** determine if new input value is valid (check with validateValue method) and can be apply */
-  isValidValue: boolean;
+function toInputString(value: Nullable<number>, mask: IMask): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "";
+  const scaled = mask.is_percentage ? value * 100 : value;
+  return getStringNumberWithoutTrailingZeros(scaled, mask.decimals);
 }
 
-export default class EdiTableCell extends React.PureComponent<IEdiTableCellProps, IState> {
-  constructor(props: IEdiTableCellProps) {
-    super(props);
-    const { value } = this.props;
-    const newInputValue = this.getInputValue();
-    this.state = {
-      inputValue: newInputValue,
-      isFocused: false,
-      isValidValue: this.isValidValue(value),
-    };
-  }
+function fromInput(inputValue: string, mask: IMask): Nullable<number> {
+  const parsed = parseFloat(inputValue);
+  let next: Nullable<number> = Number.isNaN(parsed) ? null : parsed;
+  if (mask.is_percentage && next !== null) next /= 100;
+  return next;
+}
 
-  public componentWillUnmount() {
-    const { isFocused } = this.state;
-    if (isFocused) {
-      const { onConfirmValue } = this.props;
-      const [hasChanged, newValue] = this.getNewValue();
-      if (hasChanged) {
-        onConfirmValue(newValue);
-      }
-    }
-  }
+const EdiTableCell: React.FC<IEdiTableCellProps> = ({
+  isEdited,
+  initial_value,
+  value,
+  mask,
+  isDisabled,
+  formatValue,
+  onConfirmValue,
+  validateValue,
+}) => {
+  const [inputValue, setInputValue] = React.useState<string>(() => toInputString(value, mask));
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [isValidValue, setIsValidValue] = React.useState<boolean>(() =>
+    validateValue && value != null && !Number.isNaN(value) ? validateValue(value) : true,
+  );
 
-  private getNewValue = (): [boolean, Nullable<number>] => {
-    const { inputValue } = this.state;
-    const { initial_value, value, mask } = this.props;
-    let newValue: Nullable<number> = parseFloat(inputValue);
-    newValue = isNaN(newValue) ? null : newValue;
-    /**
-     * Change percentage value format because :
-     * Edited value has the following format : 100 is equal to 100%
-     * Data we worked on has the following format : 1 is equal to 100
-     */
-    if (mask.is_percentage) {
-      newValue = newValue ? newValue / 100 : newValue;
-    }
-    /** if the edited value is different than the value before edition */
-    if (newValue !== value) {
+  const checkValidValue = React.useCallback(
+    (next: Nullable<number> | undefined) => {
+      const isNumber = next != null && !Number.isNaN(next);
+      return validateValue && isNumber ? validateValue(next as number) : true;
+    },
+    [validateValue],
+  );
+
+  const computeNewValue = React.useCallback((): [boolean, Nullable<number>] => {
+    let next = fromInput(inputValue, mask);
+    if (next !== value) {
       const isCleared = inputValue === "";
-      if (isCleared) {
-        newValue = initial_value === null ? null : 0;
+      if (isCleared) next = initial_value === null ? null : 0;
+      return [true, next];
+    }
+    return [false, next];
+  }, [inputValue, mask, value, initial_value]);
+
+  // Confirm pending value if the cell unmounts while focused.
+  const stateRef = React.useRef({ isFocused, computeNewValue, onConfirmValue });
+  stateRef.current = { isFocused, computeNewValue, onConfirmValue };
+  React.useEffect(
+    () => () => {
+      const { isFocused: wasFocused, computeNewValue: latest, onConfirmValue: confirm } = stateRef.current;
+      if (wasFocused) {
+        const [hasChanged, newValue] = latest();
+        if (hasChanged) confirm(newValue);
       }
-      return [true, newValue];
-    }
-    return [false, newValue];
-  };
+    },
+    [],
+  );
 
-  private selectValue = (event: React.MouseEvent<HTMLInputElement, MouseEvent>) => {
-    event.currentTarget.select();
-  };
+  const focus = React.useCallback(() => {
+    setIsFocused(true);
+    setInputValue(toInputString(value, mask));
+    setIsValidValue(checkValidValue(value));
+  }, [value, mask, checkValidValue]);
 
-  private focus = () => {
-    const { value } = this.props;
-    const newInputValue = this.getInputValue();
-    this.setState({
-      isFocused: true,
-      inputValue: newInputValue,
-      isValidValue: this.isValidValue(value),
-    });
-  };
+  const handleChange = React.useCallback((values: NumberFormatValues) => {
+    setInputValue(values.value);
+  }, []);
 
-  private getInputValue = () => {
-    const { value, mask } = this.props;
-    let newInputValue = value;
-    const isNumber = value !== null && !isNaN(value);
-    if (isNumber && mask.is_percentage) {
-      // @ts-ignore value !== null
-      newInputValue = value * 100;
-    }
-    // @ts-ignore value !== null
-    return isNumber ? getStringNumberWithoutTrailingZeros(newInputValue, mask.decimals) : "";
-  };
+  const handleAllowed = React.useCallback(
+    (values: NumberFormatValues) => {
+      const valid = checkValidValue(values.floatValue ?? null);
+      setIsValidValue((prev) => (prev !== valid ? valid : prev));
+      return valid;
+    },
+    [checkValidValue],
+  );
 
-  protected clearFocus = () => {
-    this.setState({
-      isFocused: false,
-    });
-  };
-
-  private isValidValue = (value: Nullable<number> | undefined) => {
-    const { validateValue } = this.props;
-    const isNumber = value != null && !isNaN(value);
-    return validateValue && isNumber ? validateValue(value) : true;
-  };
-
-  private isAllowed = (values: NumberFormat.NumberFormatValues) => {
-    const { isValidValue: currentIsValidValue } = this.state;
-    const isValidValue = this.isValidValue(values.floatValue);
-
-    if (currentIsValidValue !== isValidValue) {
-      this.setState({
-        isValidValue,
-      });
-    }
-    return isValidValue;
-  };
-
-  private onValueChangeHandle = (values: NumberFormat.NumberFormatValues) => {
-    this.setState({
-      inputValue: values.value,
-    });
-  };
-
-  private onKeyPress = (event: React.KeyboardEvent): void => {
-    if (event.which === KEYCODE_ENTER || event.keyCode === KEYCODE_ENTER) {
-      this.onBlur();
-    }
-  };
-
-  private onBlur = (): void => {
-    const { onConfirmValue } = this.props;
-    const [hasChanged, newValue] = this.getNewValue();
+  const blur = React.useCallback(() => {
+    const [hasChanged, newValue] = computeNewValue();
     if (hasChanged) {
-      this.setState({ inputValue: "" }, () => {
-        onConfirmValue(newValue);
-      });
+      setInputValue("");
+      onConfirmValue(newValue);
     }
-    this.clearFocus();
-  };
+    setIsFocused(false);
+  }, [computeNewValue, onConfirmValue]);
 
-  public render() {
-    const { inputValue, isFocused, isValidValue } = this.state;
-    const { isEdited, value, mask, formatValue, isDisabled } = this.props;
-    let inputValueWidth = inputValue !== "" ? inputValue.trim().length * 10 : minInputWidth;
-    inputValueWidth = inputValueWidth < minInputWidth ? minInputWidth : inputValueWidth;
-    const formattedValue = formatValue(value, mask);
-    return (
-      <div
-        className={classnames("editable-cell", {
-          empty: !isFocused && value === null,
-          error: !isValidValue,
-        })}
-        data-testid="editable-cell"
-        onClick={!isDisabled && !isFocused ? this.focus : undefined}
-      >
-        {!isDisabled && isFocused ? (
-          // @ts-ignore https://github.com/s-yadav/react-number-format/issues/180
-          <NumberFormatComponent
-            autoFocus
-            data-testid="editable-cell-text-field"
-            customInput={TextField}
-            variant="standard"
-            defaultValue={inputValue}
-            onValueChange={this.onValueChangeHandle}
-            onBlur={this.onBlur}
-            onKeyPress={this.onKeyPress}
-            thousandSeparator=" "
-            decimalSeparator=","
-            style={{ width: inputValueWidth }}
-            InputProps={{ classes: { underline: "editable-cell__underline" }, onFocus: this.selectValue }}
-            isNumericString
-            decimalScale={mask.decimals}
-            allowNegative={mask.is_negative}
-            isAllowed={this.isAllowed}
-          />
-        ) : (
-          <div
-            className={classnames("editable-cell__value", {
-              [EDITED_CELL_CLASSNAME]: isEdited,
-            })}
-            title={formattedValue}
-          >
-            <span className="text">{formattedValue}</span>
-          </div>
-        )}
-      </div>
-    );
-  }
-}
+  const handleKeyPress = React.useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.which === KEYCODE_ENTER || event.keyCode === KEYCODE_ENTER) blur();
+    },
+    [blur],
+  );
+
+  const selectInputValue = React.useCallback((event: React.FocusEvent<HTMLInputElement>) => {
+    event.currentTarget.select();
+  }, []);
+
+  const trimmedLength = inputValue !== "" ? inputValue.trim().length * 10 : MIN_INPUT_WIDTH;
+  const inputValueWidth = trimmedLength < MIN_INPUT_WIDTH ? MIN_INPUT_WIDTH : trimmedLength;
+  const formattedValue = formatValue(value, mask);
+
+  return (
+    <div
+      className={classnames("editable-cell", {
+        empty: !isFocused && value === null,
+        error: !isValidValue,
+      })}
+      data-testid="editable-cell"
+      onClick={!isDisabled && !isFocused ? focus : undefined}
+    >
+      {!isDisabled && isFocused ? (
+        <NumericFormat
+          autoFocus
+          data-testid="editable-cell-text-field"
+          customInput={TextField}
+          variant="standard"
+          defaultValue={inputValue}
+          onValueChange={handleChange}
+          onBlur={blur}
+          onKeyPress={handleKeyPress}
+          thousandSeparator=" "
+          decimalSeparator=","
+          style={{ width: inputValueWidth }}
+          // Standard variant exposes `underline` on its classes; the union TextField type doesn't, so cast.
+          InputProps={
+            {
+              classes: { underline: "editable-cell__underline" },
+              onFocus: selectInputValue,
+            } as React.ComponentProps<typeof TextField>["InputProps"]
+          }
+          valueIsNumericString
+          decimalScale={mask.decimals}
+          allowNegative={mask.is_negative}
+          isAllowed={handleAllowed}
+        />
+      ) : (
+        <div className={classnames("editable-cell__value", { [EDITED_CELL_CLASSNAME]: isEdited })} title={formattedValue}>
+          <span className="text">{formattedValue}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EdiTableCell;
