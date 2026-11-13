@@ -1,7 +1,7 @@
 import * as React from "react";
 import classNames from "classnames";
-
 import { isEqual } from "lodash";
+
 import { MouseClickButtons, MAX_ROW_LEVEL } from "../constants";
 import Cell, { ICell, ICellCoordinates, SubRowsToggleButtonComponentProps } from "./cell";
 import RowSpan, { IRowSpan } from "./row-span";
@@ -16,12 +16,12 @@ import {
   getColspanValues,
   IIndexColspanMapping,
   IElevateds,
+  ElevationType,
   IRelativeIndex,
   getSubRowsCellIndex,
 } from "../utils/table";
 import { ISelectedCells } from "../table-selection/selection-handler";
 import { ISelectionContext } from "../table-selection/context-menu-handler";
-import shallowEqual from "../utils/shallowEqual";
 
 export interface IRowOptions {
   size?: number;
@@ -29,70 +29,40 @@ export interface IRowOptions {
 
 export interface IRow<IDataCoordinates = any> extends IRowOptions {
   id: string;
-  /** The CSS class name of the cell. */
   className?: string;
-  /** The list of cells of the row */
   cells: ICell<IDataCoordinates>[];
-  /** Defines if the line is a header, using a different column element for the cell */
   isHeader?: boolean;
-  /** Defines if the line is selectable. If true, user can select the row's cells */
   isSelectable?: boolean;
-  /** The row span propos used only if isSpan is true */
   rowSpanProps?: IRowSpan;
-  /** Defines if the sub rows are fixed. to use only if the table is virtualized */
+  /** When true, sub-rows of this row remain fixed at the bottom while scrolling */
   fixSubRows?: boolean;
-  /** loading state of the row */
   loading?: boolean;
 }
 
 export interface IRowProps extends IRow {
-  /** The absolute index in the table */
   absoluteIndex: number;
-  /** The relative index in a level of the table */
   index: number;
-  /** The level of the row in the tree */
   level: number;
   relativeSubIndexesMapping: IRelativeIndexesMap;
-  /** An object with the absolute rows indexes and their selected cells indexes */
   selectedCells: ISelectedCells;
-  /** Specifies indexes of the rows to be shown */
   visibleRowIndexes?: number[];
-  /** Index of the columns that must be displayed */
   visibleColumnIndexes?: number[];
-  /** Index of columns that need to be "elevated" by displaying a shadow on its right side */
   elevatedColumnIndexes?: IElevateds;
-  /** Index of rows that need to be "elevated" by displaying a shadow on its bottom side */
   elevatedRowIndexes?: IElevateds;
-  /** TODO with tree update */
   openedTree?: ITree;
-  /**
-   * If true, we are using an additional column at the beginning of the row to open/close the first openable child.
-   * */
   isSpan?: boolean;
-  /** The delegated span to the first visible sub-row if the row is not visible */
   delegatedSpan?: JSX.Element;
-  /** Determine if the row needs to be displayed */
   isVisible?: boolean;
   style?: React.CSSProperties;
-  /** Column options to apply to the right cells of the row */
   columns?: { [index: number]: IColumn };
-  /** Properties shared between cells belonging to the same columns */
   globalColumnProps: IColumnOptions;
-  /** A table utility for optimization. Please see the ElementaryTable.getVisibleRows */
-  getVisibleRows: (rows: IRow[], absoluteIndex: number) => [number[], IRow[]];
-  /** A table utility for optimization. Please see the ElementaryTable.getRowTreeLength */
+  getVisibleRows: (rows: IRow[], absoluteIndex: number) => [number[] | null, IRow[]];
   getRowTreeLength?: (absoluteIndex: number) => number;
-  /** Callback when we are clicking on the cell */
   onCellMouseDown?: (coordinates: ICellCoordinates, mouseClickButton: MouseClickButtons) => void;
-  /** Callback when we are hovering into the cell */
   onCellMouseEnter?: (coordinates: ICellCoordinates) => void;
-  /** Callback when we release the mouse button above the cell */
   onCellMouseUp?: () => void;
-  /** Callback when we try to open the context menu */
   onCellContextMenu?: (selectionContext: ISelectionContext) => void;
-  /** Callback when we are displaying the subItems of the row */
   onOpen?: (openedTree: ITree) => void;
-  /** Callback when we are closing the subItems of the row */
   onClose?: (closedTree: ITree) => void;
   /**
    * Optional React component used to render a toggle button
@@ -108,223 +78,284 @@ export interface IRowProps extends IRow {
   subRowsCellIndex?: number;
 }
 
-interface IState {
-  mappingCellsWithColspan: IIndexColspanMapping;
-}
-
-const defaultRelativeIndex: Partial<IRelativeIndex> = {
+const DEFAULT_RELATIVE_INDEX: Partial<IRelativeIndex> = {
   subItems: undefined,
   index: undefined,
 };
 
-export default class Row extends React.Component<IRowProps, IState> {
-  public static defaultProps = {
-    index: 0,
-    absoluteIndex: 0,
-    level: 0,
-    isVisible: true,
+const DEFAULT_ELEVATED: IElevateds = { elevations: {}, absoluteEndPositions: {} };
+const DEFAULT_GET_VISIBLE_ROWS: IRowProps["getVisibleRows"] = (rows) => [null, rows];
+const DEFAULT_RELATIVE_MAP: IRelativeIndexesMap = {};
+const DEFAULT_GLOBAL_COLUMN_PROPS: IColumnOptions = {};
+const DEFAULT_COLUMNS: { [index: number]: IColumn } = {};
+const EMPTY_SELECTED_CELLS: ISelectedCells = {};
+
+const NO_COLUMN: IColumn = {};
+const NO_CLASS_NAME = "";
+
+/** The first of the cells fixed at the end: it draws their relief. */
+const isAbsoluteEdge = (elevation?: ElevationType, previousElevation?: ElevationType) =>
+  elevation === ElevationType.absolute && previousElevation !== ElevationType.absolute;
+
+function hasColspans(cells: ICell[]): boolean {
+  for (let i = 0; i < cells.length; i++) {
+    if ((cells[i].colspan || 1) > 1) return true;
+  }
+  return false;
+}
+
+/** The column that gives its elevation to the cell: the cell itself, or one of the columns it spans. */
+function getElevationIndex(
+  cellIndex: number,
+  elevations: IElevateds["elevations"],
+  colspanMapping: IIndexColspanMapping | null,
+): number | undefined {
+  if (!colspanMapping) return elevations[cellIndex] ? cellIndex : undefined;
+  const spannedIndexes = colspanMapping.indexToColspan[cellIndex];
+  for (let i = 0; i < spannedIndexes.length; i++) {
+    if (elevations[spannedIndexes[i]]) return spannedIndexes[i];
+  }
+  return undefined;
+}
+
+function getCellClassName(cellClassName?: string, columnClassName?: string, elevation?: ElevationType, isEdge?: boolean) {
+  if (!elevation) return cellClassName || columnClassName ? classNames(cellClassName, columnClassName) : NO_CLASS_NAME;
+  return classNames(cellClassName, columnClassName, `elevated-${elevation}`, isEdge && "elevated-absolute-edge");
+}
+
+/** What the cells of a column share, on the rows of a given height */
+interface IColumnLayout {
+  style: React.CSSProperties;
+  className?: string;
+  isSelectable: boolean;
+  loading?: boolean;
+}
+
+type ILayoutsByPlace = Map<number | undefined, Map<number, IColumnLayout>>;
+type ILayoutsByColumn = WeakMap<IColumn, ILayoutsByPlace>;
+/** Per `columns` object then per global options: options modified in place come with a new object, and start afresh */
+const columnLayouts = new WeakMap<object, WeakMap<IColumnOptions, ILayoutsByColumn>>();
+/** Row heights, then end positions, kept per column: a handful in practice */
+const MAX_LAYOUTS = 16;
+
+function computeColumnLayout(
+  globalColumnProps: IColumnOptions,
+  cellColumn: IColumn,
+  right: number,
+  size?: number,
+): IColumnLayout {
+  const column = {
     isSelectable: true,
-    columns: {},
-    elevatedColumnIndexes: { elevations: {}, absoluteEndPositions: {} },
-    elevatedRowIndexes: { elevations: {}, absoluteEndPositions: {} },
-    selectedCells: [],
-    getVisibleRows: (rows: IRow[]) => [null, rows],
-    relativeSubIndexesMapping: {},
-    globalColumnProps: {},
+    ...globalColumnProps,
+    ...cellColumn,
+    style: { ...globalColumnProps.style, ...cellColumn.style, right },
   };
+  return {
+    style: computeCellStyle(column, { size }),
+    className: column.className,
+    isSelectable: column.isSelectable,
+    loading: column.loading,
+  };
+}
 
-  constructor(props: IRowProps) {
-    super(props);
-    const { cells } = this.props;
-    this.state = {
-      // getMappingCellsWithColspan is memoized (and must remain memorized)
-      // TODO we must have a global cache system
-      mappingCellsWithColspan: getMappingCellsWithColspan(cells),
-    };
+/** Level of the cache for a row height: bounded, a table has a handful of them. */
+function getLayoutsByRight(byPlace: ILayoutsByPlace, size?: number): Map<number, IColumnLayout> {
+  let byRight = byPlace.get(size);
+  if (!byRight) {
+    if (byPlace.size >= MAX_LAYOUTS) byPlace.clear();
+    byRight = new Map();
+    byPlace.set(size, byRight);
   }
+  return byRight;
+}
 
-  public componentDidUpdate(prevProps: IRowProps) {
-    const { cells } = this.props;
-    if (prevProps.cells !== cells) {
-      this.setState({
-        mappingCellsWithColspan: getMappingCellsWithColspan(cells),
-      });
-    }
+/**
+ * Computed once per column and not once per cell: every row renders at a horizontal scroll
+ * step. The cells of a column also get the same `style` object, from one render to the next.
+ */
+function getColumnLayout(
+  columns: object,
+  globalColumnProps: IColumnOptions,
+  cellColumn: IColumn,
+  right: number,
+  size?: number,
+): IColumnLayout {
+  let byGlobalProps = columnLayouts.get(columns);
+  if (!byGlobalProps) {
+    byGlobalProps = new WeakMap();
+    columnLayouts.set(columns, byGlobalProps);
   }
-
-  public shouldComponentUpdate(nextProps: IRowProps) {
-    const nextRowProps = { ...nextProps };
-    const rowProps = { ...this.props };
-    // not used if no opened cell
-    if (!nextProps.openedTree) {
-      delete nextRowProps.visibleRowIndexes;
-      delete rowProps.visibleRowIndexes;
-    }
-    const {
-      selectedCells: nextSelectCells,
-      elevatedRowIndexes: nextElevatedRowIndexes,
-      elevatedColumnIndexes: nextElevatedColumnIndexes,
-      ...otherNextProps
-    } = nextRowProps;
-    const { selectedCells, elevatedRowIndexes, elevatedColumnIndexes, ...otherProps } = rowProps;
-
-    return (
-      !shallowEqual(otherNextProps, otherProps) ||
-      !isEqual(nextSelectCells, selectedCells) ||
-      !isEqual(nextElevatedRowIndexes, elevatedRowIndexes) ||
-      !isEqual(nextElevatedColumnIndexes, elevatedColumnIndexes)
-    );
+  let byColumn = byGlobalProps.get(globalColumnProps);
+  if (!byColumn) {
+    byColumn = new WeakMap();
+    byGlobalProps.set(globalColumnProps, byColumn);
   }
+  let byPlace = byColumn.get(cellColumn);
+  if (!byPlace) {
+    byPlace = new Map();
+    byColumn.set(cellColumn, byPlace);
+  }
+  const byRight = getLayoutsByRight(byPlace, size);
+  let layout = byRight.get(right);
+  if (!layout) {
+    if (byRight.size >= MAX_LAYOUTS) byRight.clear();
+    layout = computeColumnLayout(globalColumnProps, cellColumn, right, size);
+    byRight.set(right, layout);
+  }
+  return layout;
+}
 
-  private updateOpenedCell = (cellIndex: number) => {
-    const { onOpen, onClose, index, openedTree } = this.props;
-    const openedCellIndex = openedTree ? openedTree.columnIndex : null;
-    const newOpenedCellIndexe = openedCellIndex === cellIndex ? null : cellIndex;
-    if (newOpenedCellIndexe !== openedCellIndex) {
-      const isToOpen = newOpenedCellIndexe != null;
-      if (isToOpen && onOpen) {
-        onOpen({ rowIndex: index, columnIndex: newOpenedCellIndexe as number });
-      } else if (!isToOpen && onClose) {
-        onClose({ rowIndex: index, columnIndex: cellIndex });
-      }
+function RowComponent(props: IRowProps): JSX.Element | null {
+  const {
+    id,
+    loading,
+    className,
+    cells,
+    absoluteIndex = 0,
+    index: relativeRowIndex = 0,
+    isVisible = true,
+    isSelectable = true,
+    isSpan,
+    isHeader,
+    columns = DEFAULT_COLUMNS,
+    openedTree,
+    globalColumnProps = DEFAULT_GLOBAL_COLUMN_PROPS,
+    visibleColumnIndexes,
+    elevatedColumnIndexes = DEFAULT_ELEVATED,
+    delegatedSpan,
+    size,
+    onCellMouseDown,
+    onCellMouseEnter,
+    onCellMouseUp,
+    onCellContextMenu,
+    selectedCells = EMPTY_SELECTED_CELLS,
+    style,
+    SubRowsToggleButtonComponent,
+    subRowsCellIndex,
+  } = props;
+
+  // Only for a row with spanning cells: the mapping costs one pass over all the cells of the
+  // row, visible or not, each time a row enters the window.
+  const colspanMapping: IIndexColspanMapping | null = React.useMemo(
+    () => (hasColspans(cells) ? getMappingCellsWithColspan(cells) : null),
+    [cells],
+  );
+
+  const openedCellIndex = openedTree ? openedTree.columnIndex : null;
+  const openedCell = openedCellIndex !== null ? cells[openedCellIndex] : null;
+
+  const firstCellIndexWithSubItems: number = React.useMemo(
+    () => (isSpan ? cells.findIndex((cell) => (cell.subItems ? cell.subItems.length > 0 : false)) : -1),
+    [isSpan, cells],
+  );
+
+  // Read-through-ref pattern: the props identity changes every render but the callbacks
+  // we hand to <Cell> / <RowSpan> / nested <Row> must stay referentially stable to keep
+  // their `React.memo` honest. Without this, every vertical scroll re-renders every cell
+  // because `toggleCell` got a new identity (its dep `updateOpenedCell` had `[props]`).
+  const propsRef = React.useRef(props);
+  propsRef.current = props;
+
+  const updateOpenedCell = React.useCallback((cellIndex: number) => {
+    const { onOpen, onClose, index, openedTree: tree } = propsRef.current;
+    const currentOpenedIndex = tree ? tree.columnIndex : null;
+    const newIndex = currentOpenedIndex === cellIndex ? null : cellIndex;
+    if (newIndex === currentOpenedIndex) return;
+    if (newIndex !== null && onOpen) onOpen({ rowIndex: index, columnIndex: newIndex });
+    else if (newIndex === null && onClose) onClose({ rowIndex: index, columnIndex: cellIndex });
+  }, []);
+
+  const onSubRowOpen = React.useCallback((newOpenedTree: ITree) => {
+    const { onOpen, openedTree: tree } = propsRef.current;
+    if (!onOpen) return;
+    const subTrees = (tree && tree.subTrees) || {};
+    onOpen({ ...(tree as ITree), subTrees: { ...subTrees, [newOpenedTree.rowIndex]: newOpenedTree } });
+  }, []);
+
+  const onSubRowClose = React.useCallback((treeToClose: ITree) => {
+    const { onOpen, openedTree: tree } = propsRef.current;
+    if (!onOpen) return;
+    const subTrees = { ...((tree && tree.subTrees) || {}) };
+    delete subTrees[treeToClose.rowIndex];
+    onOpen({ ...(tree as ITree), subTrees });
+  }, []);
+
+  const toggleCell = React.useCallback(
+    (cellIndex: number) => {
+      const { cells: currentCells } = propsRef.current;
+      if (currentCells[cellIndex]) updateOpenedCell(cellIndex);
+    },
+    [updateOpenedCell],
+  );
+
+  const toggleFirstCell = React.useCallback(() => {
+    const { cells: currentCells, openedTree: tree, isSpan: span } = propsRef.current;
+    const currentOpenedCellIndex = tree ? tree.columnIndex : null;
+    if (currentOpenedCellIndex !== null) {
+      updateOpenedCell(currentOpenedCellIndex);
+      return;
     }
-  };
+    const firstWithSubItems = span ? currentCells.findIndex((c) => (c.subItems ? c.subItems.length > 0 : false)) : -1;
+    if (firstWithSubItems >= 0) updateOpenedCell(firstWithSubItems);
+  }, [openedCellIndex, firstCellIndexWithSubItems, updateOpenedCell]);
 
-  private onSubRowOpen = (newOpenedTree: ITree) => {
-    const { onOpen, openedTree } = this.props;
-    if (onOpen) {
-      const subTrees = (openedTree && openedTree.subTrees) || {};
-      const newSubTrees = { ...subTrees };
-      // update the sub-tree to update
-      newSubTrees[newOpenedTree.rowIndex] = newOpenedTree;
-      // if onSubRowOpen is called means that openedTree is not null
-      onOpen({ ...(openedTree as ITree), subTrees: newSubTrees });
-    }
-  };
-
-  private onSubRowClose = (treeToClose: ITree) => {
-    const { onOpen, openedTree } = this.props;
-    if (onOpen) {
-      const subTrees = (openedTree && openedTree.subTrees) || {};
-      const newSubTrees = { ...subTrees };
-      // remove the sub-tree to close
-      delete newSubTrees[treeToClose.rowIndex];
-      // if onSubRowClose is called means that openedTree is not null
-      onOpen({ ...(openedTree as ITree), subTrees: newSubTrees });
-    }
-  };
-
-  private toggleCell = (cellIndex: number) => {
-    const { cells } = this.props;
-    if (cells[cellIndex]) {
-      this.updateOpenedCell(cellIndex);
-    }
-  };
-
-  private toggleFirstCell = () => {
-    const { openedTree } = this.props;
-    const openedCellIndex = openedTree ? openedTree.columnIndex : null;
-    if (openedCellIndex !== null) {
-      this.updateOpenedCell(openedCellIndex);
-    } else {
-      const firstCellWithSubItems = this.getFirstCellIndexWithSubItems();
-      if (firstCellWithSubItems >= 0) {
-        this.updateOpenedCell(firstCellWithSubItems);
-      }
-    }
-  };
-
-  private getFirstCellIndexWithSubItems = (): number => {
-    const { cells } = this.props;
-    return cells.findIndex((cell) => (cell.subItems ? cell.subItems.length > 0 : false));
-  };
-
-  /** Only used for the first level */
-  private renderRowSpan = (hasSubItems: boolean) => {
-    if (!hasSubItems) {
-      return <td className="table-column row-span-column" rowSpan={1} />;
-    }
-    const { isVisible, cells, openedTree, absoluteIndex, getRowTreeLength, visibleRowIndexes, rowSpanProps, size } = this.props;
-    const openedCellIndex = openedTree ? openedTree.columnIndex : null;
-    const openedCell = openedCellIndex !== null ? cells[openedCellIndex] : null;
+  const renderRowSpan = (hasSubItems: boolean) => {
+    if (!hasSubItems) return <td className="table-column row-span-column" rowSpan={1} />;
+    const { absoluteIndex: absIndex, getRowTreeLength, visibleRowIndexes, rowSpanProps } = props;
     const subItems = openedCell ? openedCell.subItems || [] : [];
-    const subTrees = openedTree ? openedTree.subTrees || [] : [];
+    const subTrees = openedTree ? openedTree.subTrees || {} : {};
     const length =
       visibleRowIndexes && getRowTreeLength
-        ? getRowTreeLength(absoluteIndex) + (isVisible ? 1 : 0)
+        ? getRowTreeLength(absIndex) + (isVisible ? 1 : 0)
         : getTreesLength(subTrees, subItems) + subItems.length + 1;
     return (
-      <RowSpan
-        opened={!!openedCell}
-        length={openedCell ? length : 1}
-        toggle={this.toggleFirstCell}
-        {...rowSpanProps}
-        height={size}
-      />
+      <RowSpan opened={!!openedCell} length={openedCell ? length : 1} toggle={toggleFirstCell} {...rowSpanProps} height={size} />
     );
   };
 
-  private getDelegatedSpan = (firstCellIndexWithSubItems: number) => {
-    const { level, isSpan, delegatedSpan } = this.props;
-    return (level === 0 && isSpan && this.renderRowSpan(firstCellIndexWithSubItems >= 0)) || delegatedSpan;
-  };
+  const getDelegatedSpan = (firstCellIdx: number): JSX.Element | undefined =>
+    (props.level === 0 && isSpan && renderRowSpan(firstCellIdx >= 0)) || delegatedSpan;
 
-  private renderSubRows = (firstCellIndexWithSubItems: number) => {
+  const renderSubRows = (firstCellIdx: number): JSX.Element[] | null => {
     const {
-      id,
-      cells,
-      isVisible: parentIsVisible,
-      absoluteIndex,
-      level,
-      size,
-      columns,
+      level = 0,
       visibleRowIndexes,
-      openedTree,
-      getVisibleRows,
-      visibleColumnIndexes,
-      relativeSubIndexesMapping,
-      elevatedColumnIndexes,
-      elevatedRowIndexes,
-      globalColumnProps,
-      onCellMouseUp,
-      onCellContextMenu,
-      onCellMouseDown,
-      onCellMouseEnter,
-      selectedCells,
-      subRowsCellIndex,
-      SubRowsToggleButtonComponent,
-    } = this.props;
-    const openedCellIndex = openedTree ? openedTree.columnIndex : null;
-    const openedCell = openedCellIndex !== null ? cells[openedCellIndex] : null;
+      getVisibleRows = DEFAULT_GET_VISIBLE_ROWS,
+      relativeSubIndexesMapping = DEFAULT_RELATIVE_MAP,
+      elevatedRowIndexes = DEFAULT_ELEVATED,
+    } = props;
     const subRows = openedCell ? openedCell.subItems || [] : [];
-    const [relativeIndexes, rowsToRender] = getVisibleRows(subRows, absoluteIndex);
-    if (!rowsToRender.length) {
-      return null;
-    }
+    const [relativeIndexes, rowsToRender] = getVisibleRows(subRows, props.absoluteIndex);
+    if (!rowsToRender.length) return null;
 
     const globalProps: IRowOptions = { size };
-    const subOpenedTrees = (openedTree && openedTree.subTrees) || [];
-    const rowSpan = !parentIsVisible ? this.getDelegatedSpan(firstCellIndexWithSubItems) : undefined;
+    const subOpenedTrees = (openedTree && openedTree.subTrees) || {};
+    const subRowSpan = !isVisible ? getDelegatedSpan(firstCellIdx) : undefined;
     const subLevel = level + 1;
     const minLevel = Math.min(subLevel, MAX_ROW_LEVEL);
-    return rowsToRender.map((subRow, index) => {
-      const subRowIndex = relativeIndexes ? relativeIndexes[index] : index;
-      const { subItems, index: rowAbsoluteIndex } = relativeSubIndexesMapping[subRowIndex] || defaultRelativeIndex;
-      const isVisible = !visibleRowIndexes || (rowAbsoluteIndex !== undefined && visibleRowIndexes.includes(rowAbsoluteIndex));
-      const openedSubTree = subOpenedTrees[subRowIndex];
-      const elevation = elevatedRowIndexes?.elevations[rowAbsoluteIndex];
-      const absolutePosition = elevatedRowIndexes?.absoluteEndPositions[rowAbsoluteIndex];
+
+    return rowsToRender.map((subRow, idx) => {
+      const subRowIndex = relativeIndexes ? relativeIndexes[idx] : idx;
+      const { subItems, index: rowAbsoluteIndex } = relativeSubIndexesMapping[subRowIndex] || DEFAULT_RELATIVE_INDEX;
+      const subRowVisible =
+        !visibleRowIndexes || (rowAbsoluteIndex !== undefined && visibleRowIndexes.includes(rowAbsoluteIndex));
+      const subOpenedTree = subOpenedTrees[subRowIndex];
+      const elevation = rowAbsoluteIndex !== undefined ? elevatedRowIndexes.elevations[rowAbsoluteIndex] : undefined;
+      const absolutePosition =
+        rowAbsoluteIndex !== undefined ? elevatedRowIndexes.absoluteEndPositions[rowAbsoluteIndex] : undefined;
       const rowStyle = absolutePosition != null ? { bottom: absolutePosition } : undefined;
-      // get selected cells
-      let rowSelectedCells = (subItems || selectedCells[rowAbsoluteIndex]) && selectedCells;
-      const nextRowMap = relativeSubIndexesMapping && relativeSubIndexesMapping[subRowIndex + 1];
+
+      let rowSelectedCells =
+        rowAbsoluteIndex !== undefined && (subItems || selectedCells[rowAbsoluteIndex]) ? selectedCells : undefined;
+      const nextRowMap = relativeSubIndexesMapping[subRowIndex + 1];
       const nextRowAbsoluteIndex = nextRowMap?.index;
-      rowSelectedCells =
-        rowSelectedCells &&
-        (nextRowAbsoluteIndex ? filterIndexes(rowSelectedCells, rowAbsoluteIndex, nextRowAbsoluteIndex) : rowSelectedCells);
-      // span delegated only for the first visible row (index === 0)
-      const subDelegatedSpan = index === 0 ? rowSpan : undefined;
+      if (rowSelectedCells && rowAbsoluteIndex !== undefined && nextRowAbsoluteIndex) {
+        rowSelectedCells = filterIndexes(rowSelectedCells, rowAbsoluteIndex, nextRowAbsoluteIndex);
+      }
+
+      const subDelegatedSpan = idx === 0 ? subRowSpan : undefined;
       const subrowId = `${id}-${subRow.id}`;
+
       return (
         <Row
           key={`row-${subrowId}`}
@@ -333,161 +364,149 @@ export default class Row extends React.Component<IRowProps, IState> {
           id={subrowId}
           className={classNames(subRow.className, `sub-row sub-row__${minLevel}`, {
             "last-sub-row": subRows.length === subRowIndex + 1,
-            [`elevated-${elevation}`]: elevation,
+            [`elevated-${elevation}`]: !!elevation,
           })}
           subRowsCellIndex={getSubRowsCellIndex(subRow) ?? subRowsCellIndex}
           style={rowStyle}
-          absoluteIndex={rowAbsoluteIndex}
+          absoluteIndex={rowAbsoluteIndex ?? 0}
           index={subRowIndex}
           level={subLevel}
-          isVisible={isVisible}
+          isVisible={subRowVisible}
           columns={columns}
           globalColumnProps={globalColumnProps}
           visibleColumnIndexes={visibleColumnIndexes}
           visibleRowIndexes={visibleRowIndexes}
-          openedTree={openedSubTree}
+          openedTree={subOpenedTree}
           elevatedColumnIndexes={elevatedColumnIndexes}
           elevatedRowIndexes={elevatedRowIndexes}
-          relativeSubIndexesMapping={subItems}
+          relativeSubIndexesMapping={subItems ?? DEFAULT_RELATIVE_MAP}
           delegatedSpan={subDelegatedSpan}
           getVisibleRows={getVisibleRows}
           onCellMouseDown={onCellMouseDown}
           onCellMouseEnter={onCellMouseEnter}
           onCellMouseUp={onCellMouseUp}
           onCellContextMenu={onCellContextMenu}
-          onOpen={this.onSubRowOpen}
-          onClose={this.onSubRowClose}
-          selectedCells={rowSelectedCells}
+          onOpen={onSubRowOpen}
+          onClose={onSubRowClose}
+          selectedCells={rowSelectedCells ?? EMPTY_SELECTED_CELLS}
           SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
         />
       );
     });
   };
 
-  public render() {
-    const {
-      id,
-      loading,
-      className,
-      absoluteIndex,
-      index: relativeRowIndex,
-      isVisible,
-      isSpan,
-      isHeader,
-      cells,
-      columns,
-      openedTree,
-      globalColumnProps,
-      visibleColumnIndexes,
-      elevatedColumnIndexes,
-      delegatedSpan,
-      size,
-      onCellMouseDown,
-      onCellMouseEnter,
-      onCellMouseUp,
-      onCellContextMenu,
-      selectedCells,
-      isSelectable,
-      style,
-      SubRowsToggleButtonComponent,
-      subRowsCellIndex,
-    } = this.props;
+  const subRowElements = openedCell ? renderSubRows(firstCellIndexWithSubItems) : null;
 
-    const openedCellIndex = openedTree ? openedTree.columnIndex : null;
-    const openedCell = openedCellIndex !== null ? cells[openedCellIndex] : null;
-    const firstCellIndexWithSubItems: number = isSpan ? this.getFirstCellIndexWithSubItems() : -1;
-    const subRows = openedCell ? this.renderSubRows(firstCellIndexWithSubItems) : null;
-    if (!isVisible) {
-      return subRows;
-    }
-
-    const { mappingCellsWithColspan } = this.state;
-    const options: IRowOptions = { size };
-    const selectedRowCells = selectedCells && selectedCells[absoluteIndex];
-
-    const [visibleColumnIndexesAfterMapping, mappingColspanToIndex] =
-      visibleColumnIndexes && !mappingCellsWithColspan.isIdentity
-        ? getColspanValues(visibleColumnIndexes, mappingCellsWithColspan.colspanToIndex)
-        : [visibleColumnIndexes, null];
-    const cellsToRender = visibleColumnIndexesAfterMapping
-      ? visibleColumnIndexesAfterMapping.map((index: number) => cells[index])
-      : cells;
-    return (
-      <>
-        <tr
-          data-testid={`table-${isHeader ? "header" : "row"}-${id}`}
-          className={classNames("table-row", className, {
-            head: isHeader,
-            opened: openedCellIndex !== null,
-          })}
-          // @ts-ignore
-          style={computeRowStyle(options, style)}
-        >
-          {delegatedSpan}
-          {isSpan && !delegatedSpan ? this.renderRowSpan(firstCellIndexWithSubItems >= 0) : null}
-          {cellsToRender.map((cell: ICell, index: number) => {
-            if (!cell) {
-              return null;
-            }
-            const cellIndex = (visibleColumnIndexesAfterMapping && visibleColumnIndexesAfterMapping[index]) || index;
-            const cellColumn = columns ? columns[cellIndex] || {} : {};
-
-            const elevationIndex = mappingCellsWithColspan.indexToColspan[cellIndex].find(
-              (index) => !!(elevatedColumnIndexes && elevatedColumnIndexes.elevations[index])
-            );
-            // @ts-ignore elevationIndex !== undefined => elevatedColumnIndexes !== undefined
-            const elevation = elevatedColumnIndexes?.elevations[elevationIndex];
-            // @ts-ignore elevationIndex !== undefined => elevatedColumnIndexes !== undefined
-            const absolutePosition = elevatedColumnIndexes?.absoluteEndPositions[elevationIndex] || 0;
-
-            const column = {
-              isSelectable: true,
-              ...globalColumnProps,
-              ...cellColumn,
-              style: {
-                ...globalColumnProps.style,
-                ...cellColumn.style,
-                right: absolutePosition,
-              },
-            };
-
-            const isSelected = (selectedRowCells && selectedRowCells.includes(cellIndex)) || false;
-            // By default, columns, rows and cells are selectable
-            const cellIsSelectable =
-              isSelectable && column.isSelectable && (cell.isSelectable === undefined || cell.isSelectable === true);
-            const cellLoading = column.loading || cell.loading || loading;
-            return (
-              <Cell
-                key={`cell-${id}-${cell.id}`}
-                component={isHeader ? "th" : "td"}
-                {...cell}
-                loading={cellLoading}
-                colspan={mappingColspanToIndex ? mappingColspanToIndex[cellIndex] : 1}
-                className={classNames(cell.className, column.className, {
-                  [`elevated-${elevation}`]: elevation,
-                })}
-                index={cellIndex}
-                isSubCell={subRowsCellIndex == index}
-                rowIndex={absoluteIndex}
-                relativeRowIndex={relativeRowIndex}
-                isSelectable={cellIsSelectable}
-                isSelected={isSelected}
-                opened={openedCellIndex === cellIndex}
-                hideSubItemsOpener={isSpan && firstCellIndexWithSubItems === cellIndex}
-                onCallOpen={this.toggleCell}
-                // TODO: MEMOIZE
-                style={computeCellStyle(column, options)}
-                onMouseDown={onCellMouseDown}
-                onMouseEnter={onCellMouseEnter}
-                onMouseUp={onCellMouseUp}
-                onContextMenu={onCellContextMenu}
-                SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
-              />
-            );
-          })}
-        </tr>
-        {subRows}
-      </>
-    );
+  if (!isVisible) {
+    return <>{subRowElements}</>;
   }
+
+  const options: IRowOptions = { size };
+  const selectedRowCells = selectedCells && selectedCells[absoluteIndex];
+
+  const [visibleColumnIndexesAfterMapping, mappingColspanToIndex] =
+    visibleColumnIndexes && colspanMapping
+      ? getColspanValues(visibleColumnIndexes, colspanMapping.colspanToIndex)
+      : [visibleColumnIndexes, null];
+
+  const cellsToRender = visibleColumnIndexesAfterMapping
+    ? visibleColumnIndexesAfterMapping.map((idx: number) => cells[idx])
+    : cells;
+  let previousElevation: ElevationType | undefined;
+
+  return (
+    <>
+      <tr
+        role="row"
+        aria-rowindex={absoluteIndex + 1}
+        data-testid={`table-${isHeader ? "header" : "row"}-${id}`}
+        className={classNames("table-row", className, {
+          head: isHeader,
+          opened: openedCellIndex !== null,
+        })}
+        style={computeRowStyle(options, style)}
+      >
+        {delegatedSpan}
+        {isSpan && !delegatedSpan ? renderRowSpan(firstCellIndexWithSubItems >= 0) : null}
+        {cellsToRender.map((cell, idx) => {
+          if (!cell) return null;
+          const cellIndex = (visibleColumnIndexesAfterMapping && visibleColumnIndexesAfterMapping[idx]) || idx;
+          const cellColumn = (columns && columns[cellIndex]) || NO_COLUMN;
+
+          const elevationIndex = getElevationIndex(cellIndex, elevatedColumnIndexes.elevations, colspanMapping);
+          const elevation = elevationIndex !== undefined ? elevatedColumnIndexes.elevations[elevationIndex] : undefined;
+          const absolutePosition =
+            elevationIndex !== undefined ? elevatedColumnIndexes.absoluteEndPositions[elevationIndex] || 0 : 0;
+          const isEdge = isAbsoluteEdge(elevation, previousElevation);
+          previousElevation = elevation;
+
+          const column = getColumnLayout(columns, globalColumnProps, cellColumn, absolutePosition, size);
+
+          const cellSelected = (selectedRowCells && selectedRowCells.includes(cellIndex)) || false;
+          const cellIsSelectable =
+            isSelectable && column.isSelectable && (cell.isSelectable === undefined || cell.isSelectable === true);
+          const cellLoading = column.loading || cell.loading || loading;
+
+          return (
+            <Cell
+              key={`cell-${id}-${cell.id}`}
+              component={isHeader ? "th" : "td"}
+              {...cell}
+              loading={cellLoading}
+              // When a virtualizer column-mapping exists (i.e. visible columns may be a
+              // subset that splits a colspan), use it. Otherwise fall back to the cell's
+              // own colspan so non-virtualized tables still render the right span.
+              colspan={mappingColspanToIndex ? mappingColspanToIndex[cellIndex] : (cell.colspan ?? 1)}
+              className={getCellClassName(cell.className, column.className, elevation, isEdge)}
+              index={cellIndex}
+              // by position among the displayed cells, as in 4.x: when the column that carries the sub rows
+              // is scrolled out, the first cell displayed keeps the indent and the connector of the sub rows
+              isSubCell={subRowsCellIndex == idx}
+              rowIndex={absoluteIndex}
+              relativeRowIndex={relativeRowIndex}
+              isSelectable={cellIsSelectable}
+              isSelected={cellSelected}
+              opened={openedCellIndex === cellIndex}
+              hideSubItemsOpener={isSpan && firstCellIndexWithSubItems === cellIndex}
+              onCallOpen={toggleCell}
+              style={column.style}
+              onMouseDown={onCellMouseDown}
+              onMouseEnter={onCellMouseEnter}
+              onMouseUp={onCellMouseUp}
+              onContextMenu={onCellContextMenu}
+              SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
+            />
+          );
+        })}
+      </tr>
+      {subRowElements}
+    </>
+  );
 }
+
+const hasOwn = Object.prototype.hasOwnProperty;
+/** Rebuilt by the callers at every render: their content is what matters. */
+const DEEP_COMPARED_PROPS: ReadonlySet<string> = new Set(["selectedCells", "elevatedRowIndexes", "elevatedColumnIndexes"]);
+
+/**
+ * Same props, with two exceptions: the props above are compared by content, and
+ * `visibleRowIndexes` is ignored while the row has no opened cell (it only serves its
+ * sub rows). Written without any allocation: it runs for every row at every scroll step.
+ */
+function arePropsEqual(prev: IRowProps, next: IRowProps): boolean {
+  const keys = Object.keys(prev) as (keyof IRowProps)[];
+  if (keys.length !== Object.keys(next).length) return false;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (!hasOwn.call(next, key)) return false;
+    if (Object.is(prev[key], next[key])) continue;
+    if (key === "visibleRowIndexes" && !next.openedTree) continue;
+    if (!DEEP_COMPARED_PROPS.has(key) || !isEqual(prev[key], next[key])) return false;
+  }
+  return true;
+}
+
+const Row = React.memo(RowComponent, arePropsEqual);
+Row.displayName = "Row";
+
+export default Row;

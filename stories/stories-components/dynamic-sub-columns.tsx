@@ -1,7 +1,6 @@
 import * as React from "react";
 import { IRow } from "../../src";
 import Table from "../../src/components/table/table";
-import { boolean } from "@storybook/addon-knobs";
 import { generateRow, generateTable } from "../utils/tables";
 import { Button } from "@mui/material";
 
@@ -12,7 +11,7 @@ function generateTableWithSubRowSize(size: number) {
   return table;
 }
 
-export const TableWithDynamicSubColumns = () => {
+export const TableWithDynamicSubColumns = ({ isSpan = false }: { isSpan?: boolean }) => {
   const [table, setTable] = React.useState(() => generateTableWithSubRowSize(200));
 
   const to100RowsSize = () => {
@@ -38,7 +37,7 @@ export const TableWithDynamicSubColumns = () => {
           globalColumnProps={{ style: { justifyContent: "left" } }}
           columns={{ 0: { size: 180 } }}
           isVirtualized
-          isSpan={boolean("isSpan", false)}
+          isSpan={isSpan}
           virtualizerProps={{
             rowsCount: 10,
             columnsCount: 10,

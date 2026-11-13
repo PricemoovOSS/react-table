@@ -1,5 +1,4 @@
 import * as React from "react";
-
 import classNames from "classnames";
 
 export enum BubbleType {
@@ -13,13 +12,13 @@ export interface IBubbleProps {
   className?: string;
   badge?: string;
   type?: BubbleType;
-  children?: JSX.Element;
+  children?: React.ReactNode;
 }
 
-const Bubble = ({ className, badge, type, children }: IBubbleProps) => (
+const Bubble: React.FC<IBubbleProps> = ({ className, badge, type = BubbleType.info, children }) => (
   <div className="bubble-container">
     {children}
-    <svg className={classNames("bubble-circle", className, type || "")} height="100%" width="100%" viewBox="0 0 100 100">
+    <svg className={classNames("bubble-circle", className, type)} height="100%" width="100%" viewBox="0 0 100 100">
       <circle className="bubble-circle-main" cx="50" cy="50" r="45" />
       {badge ? (
         <>
@@ -32,9 +31,5 @@ const Bubble = ({ className, badge, type, children }: IBubbleProps) => (
     </svg>
   </div>
 );
-
-Bubble.defaultProps = {
-  type: BubbleType.info,
-};
 
 export default React.memo(Bubble);

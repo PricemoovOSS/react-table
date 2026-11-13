@@ -7,7 +7,6 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import { MenuItem, ListItemIcon, Icon, TextField } from "@mui/material";
-import { number, object } from "@storybook/addon-knobs";
 
 import TableSelectionMenu, {
   IMenuAction,
@@ -15,7 +14,7 @@ import TableSelectionMenu, {
   IMenuItemProps,
   IActionMenuComponent,
 } from "../../src/components/table-selection/table-selection-menu";
-import Table from "../../src/components/table/table";
+import Table, { ITableHandle } from "../../src/components/table/table";
 import { generateTable } from "../utils/tables";
 import { Nullable } from "../../src/components/typing";
 
@@ -23,7 +22,7 @@ interface ICustomCellContentProps {
   defaultValue: string;
 }
 
-const AlertDialog: React.FunctionComponent<IActionMenuComponent> = ({ onClose }) => {
+const AlertDialog: React.FC<IActionMenuComponent> = ({ onClose }) => {
   return (
     <Dialog open onClose={onClose} aria-labelledby="alert-dialog-title" aria-describedby="alert-dialog-description">
       <DialogTitle id="alert-dialog-title">Action title</DialogTitle>
@@ -46,7 +45,7 @@ const AlertDialog: React.FunctionComponent<IActionMenuComponent> = ({ onClose })
   );
 };
 
-export const ActionMenuItem: React.FunctionComponent<IMenuItemProps> = React.memo(({ onClick, children }) => {
+export const ActionMenuItem: React.FC<IMenuItemProps> = React.memo(({ onClick, children }) => {
   return (
     <MenuItem onClick={onClick} disabled>
       <ListItemIcon className="selection-menu-icon">
@@ -57,7 +56,7 @@ export const ActionMenuItem: React.FunctionComponent<IMenuItemProps> = React.mem
   );
 });
 
-export const ActionMenuItem2: React.FunctionComponent<IMenuItemProps> = React.memo(({ onClick, children }) => {
+export const ActionMenuItem2: React.FC<IMenuItemProps> = React.memo(({ onClick, children }) => {
   return (
     <MenuItem onClick={onClick}>
       <ListItemIcon className="selection-menu-icon">
@@ -83,26 +82,38 @@ const getActions = (): IMenuAction[] => [
   },
 ];
 
-export const SelectionMenu: React.FunctionComponent<IMenuProps> = (props) => {
+export const SelectionMenu: React.FC<IMenuProps> = (props) => {
   const actions = getActions();
   return <TableSelectionMenu {...props} actions={actions} />;
 };
 
-export const TableScrollController = () => {
-  const table = React.useRef<Table>(null);
-  const goToColumnIndex = number("goToColumn", 20);
-  const goToRowIndex = number("goToRow", 32);
+interface ITableScrollControllerProps {
+  goToColumnIndex?: number;
+  goToRowIndex?: number;
+  fixedRows?: number[];
+  height?: number;
+  width?: number;
+}
+
+export const TableScrollController: React.FC<ITableScrollControllerProps> = ({
+  goToColumnIndex = 20,
+  goToRowIndex = 32,
+  fixedRows = [0, 2, 8],
+  height = 500,
+  width = 1000,
+}) => {
+  const tableRef = React.useRef<ITableHandle>(null);
   const columnId = "(0,39)-0";
   const goToColumn = () => {
-    table.current?.goToColumnIndex(goToColumnIndex);
+    tableRef.current?.goToColumnIndex(goToColumnIndex);
   };
 
   const goToColumnId = () => {
-    table.current?.goToColumnId(columnId);
+    tableRef.current?.goToColumnId(columnId);
   };
 
   const goToRow = () => {
-    table.current?.goToRowIndex(goToRowIndex);
+    tableRef.current?.goToRowIndex(goToRowIndex);
   };
 
   return (
@@ -122,22 +133,32 @@ export const TableScrollController = () => {
         </Button>
       </div>
       <Table
-        ref={table}
+        ref={tableRef}
         {...generateTable(50, 50, {}, true)}
         isSelectable={false}
         isVirtualized
         virtualizerProps={{
-          fixedRows: object("fixedRows", [0, 2, 8]),
+          fixedRows,
           fixedColumns: [0, 4, 49],
-          height: number("height", 500),
-          width: number("width", 1000),
+          height,
+          width,
         }}
       />
     </div>
   );
 };
 
-export const TableColumnsRowsController = () => {
+interface ITableColumnsRowsControllerProps {
+  fixedRows?: number[];
+  height?: number;
+  width?: number;
+}
+
+export const TableColumnsRowsController: React.FC<ITableColumnsRowsControllerProps> = ({
+  fixedRows = [0, 1, 2, 8],
+  height = 500,
+  width = 1000,
+}) => {
   const [hiddenColumns, setHiddenColumn] = React.useState<number[]>([]);
   const [hiddenRow, setHiddenRow] = React.useState<Nullable<number>>();
   const toggleColumn = (columnIndex: number) => () => {
@@ -188,19 +209,17 @@ export const TableColumnsRowsController = () => {
         virtualizerProps={{
           hiddenColumns,
           hiddenRows: hiddenRow ? [hiddenRow] : [],
-          fixedRows: object("fixedRows", [0, 1, 2, 8]),
+          fixedRows,
           fixedColumns: [0, 1, 2, 3, 4, 49],
-          height: number("height", 500),
-          width: number("width", 1000),
+          height,
+          width,
         }}
       />
     </div>
   );
 };
 
-export const CustomCellContent = ({
-  defaultValue,
-}: ICustomCellContentProps): React.FunctionComponentElement<ICustomCellContentProps> => {
+export const CustomCellContent: React.FC<ICustomCellContentProps> = ({ defaultValue }) => {
   const [editable, setEditable] = React.useState<boolean>(false);
   const [value, setValue] = React.useState<string>(defaultValue);
 
