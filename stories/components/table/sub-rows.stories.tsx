@@ -52,13 +52,14 @@ export const InitiallyOpened: StoryObj = {
   ),
 };
 
-function PlusMinusToggle({ opened, onClick }: SubRowsToggleButtonComponentProps) {
+function PlusMinusToggle({ opened, onClick, tabIndex }: SubRowsToggleButtonComponentProps) {
   return (
     <button
       type="button"
       className="table-cell-sub-item-toggle"
       aria-expanded={!!opened}
       aria-label={opened ? "Close the rows" : "Open the rows"}
+      tabIndex={tabIndex}
       onClick={onClick}
       style={{ width: 22, height: 22, marginRight: 6, cursor: "pointer" }}
     >
