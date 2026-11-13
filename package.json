@@ -131,7 +131,7 @@
     "performance"
   ],
   "author": "PricemoovOSS",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "husky": {
     "hooks": {
       "pre-commit": "yarn test && yarn run lint"
