@@ -60,5 +60,9 @@ stats.json
 # Storybook Jest
 jest-test-results.json
 
+# Playwright
+test-results/
+playwright-report/
+
 # Storybook build
 storybook-static/
