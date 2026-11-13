@@ -1,5 +1,3 @@
-/// <reference path="../typings/tests-entry.d.ts" />
-
 import { fireEvent } from "@testing-library/react";
 import { Button } from "@mui/material";
 
@@ -44,7 +42,7 @@ describe("Rows controller", () => {
             );
           }}
         </TableInteractionsContext.Consumer>
-      </TabeInteractionManager>
+      </TabeInteractionManager>,
     );
     const cellSelector = '[data-testid="table-cell-wrapper-pizza"]';
     expect(container.querySelector(cellSelector)).toBeFalsy();
@@ -70,7 +68,7 @@ describe("Rows controller", () => {
       <TabeInteractionManager>
         <TableInteractionsContext.Consumer>
           {({ tableRef, openTrees, closeTrees, onTableUpdate, table }) => {
-            const openedTrees = table?.current ? table.current.state.openedTrees : {};
+            const openedTrees = table?.current ? table.current.getOpenedTrees() : {};
             const hasTableOpenedTrees = !!Object.keys(openedTrees).length;
             return (
               <>
@@ -95,7 +93,7 @@ describe("Rows controller", () => {
             );
           }}
         </TableInteractionsContext.Consumer>
-      </TabeInteractionManager>
+      </TabeInteractionManager>,
     );
     const closeBtnSelector = '[data-testid="close"]';
     const openBtnSelector = '[data-testid="open"]';

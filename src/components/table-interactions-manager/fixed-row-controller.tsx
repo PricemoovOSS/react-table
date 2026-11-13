@@ -33,7 +33,7 @@ export const DumbFixedRowController: React.FunctionComponent<IDumbFixedRowContro
     };
 
     return children({ toggleFixedRowIndex, isFixed });
-  }
+  },
 );
 
 const FixedRowController: React.FunctionComponent<IFixedRowControllerProps> = (props) => {

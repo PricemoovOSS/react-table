@@ -18,7 +18,7 @@ export const isMultiDimensionSelection = (selectedCells: ISelectedCells) => {
 
 export function getSelectedCellsProps<IDataCoordinates = any>(
   selectedCells: ISelectedCells,
-  getCell: (cellCoordinates: ICellCoordinates) => ICell<IDataCoordinates>
+  getCell: (cellCoordinates: ICellCoordinates) => ICell<IDataCoordinates>,
 ) {
   return Object.keys(selectedCells).reduce<ICell<IDataCoordinates>[]>((result, rowIndex) => {
     result.push(...selectedCells[rowIndex].map((cellIndex) => getCell({ rowIndex: parseInt(rowIndex), cellIndex })));

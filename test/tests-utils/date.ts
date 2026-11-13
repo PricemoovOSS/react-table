@@ -1,9 +1,9 @@
 const RealDate = Date;
 
-export function mockDate(isoDate) {
+export function mockDate(isoDate: string) {
   // @ts-ignore Type 'typeof Date' is not assignable to type 'DateConstructor'
   global.Date = class extends RealDate {
-    constructor(...date) {
+    constructor(...date: unknown[]) {
       // @ts-ignore Expected 0-7 arguments, but got 0 or more.ts(2556)
       super(...date);
       // @ts-ignore Expected 0-7 arguments, but got 0 or more.ts(2556)

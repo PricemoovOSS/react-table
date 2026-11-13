@@ -8,11 +8,12 @@ import {
   getRowTreeLength,
   filterIndexes,
   IElevateds,
+  ElevationType,
   getSubRowsCellIndex,
 } from "../utils/table";
 import { ISelection } from "../table-selection/selection-handler";
 import { Nullable } from "../typing";
-import { GroupBranch, getColumnBranches, getMergedBranches } from "../utils/group";
+import { FixedEndColumn, GroupBranch, getVisibleGroups } from "../utils/group";
 import GroupRows, { GroupRowsProps } from "./group-rows";
 import { SubRowsToggleButtonComponentProps } from "./cell";
 
@@ -41,7 +42,6 @@ export interface IColumnOptions {
 export interface IColumn extends IColumnOptions {
   isSelectable?: boolean;
   disableLevelPadding?: boolean;
-  /** loading state of the column */
   loading?: boolean;
   /** The group of the column */
   groupId?: string;
@@ -53,25 +53,19 @@ export interface IColumns {
 
 export interface IElementaryTable<IDataCoordinates = any> {
   id: string;
-  /** All rows constituting the table */
   rows: IRow<IDataCoordinates>[];
-  /** Specifies indexes of the columns to be shown */
   visibleColumnIndexes?: number[];
-  /** Specifies indexes of the rows to be shown */
   visibleRowIndexes?: number[];
-  /** Index of columns that need to be "elevated" by displaying a shadow on its right side */
   elevatedColumnIndexes?: IElevateds;
-  /** Index of rows that need to be "elevated" by displaying a shadow on its bottom side */
   elevatedRowIndexes?: IElevateds;
-  /** Options to customize any columns, such as size or align */
   columns?: IColumns;
-  /** Options to customize any rows, such as size */
+  /** Per-row options keyed by absolute index */
   rowsProps?: Record<number, IRowOptions>;
-  /** Options to customize any row, such as size */
+  /** Defaults shared by every row */
   globalRowProps?: IRowOptions;
-  /** Options to customize any column, such as size */
+  /** Defaults shared by every column */
   globalColumnProps?: IColumnOptions;
-  /** If true, we are using an additional column at the beginning of the rows to open/close the first openable child. */
+  /** When true, renders a span column at the start of rows that opens the first openable child */
   isSpan?: boolean;
   /** Options to customize any group rows, such as size */
   groupsProps?: GroupRowsProps;
@@ -83,172 +77,257 @@ export interface IElementaryTable<IDataCoordinates = any> {
   SubRowsToggleButtonComponent?: React.ComponentType<SubRowsToggleButtonComponentProps>;
 }
 
-export interface IElementaryTableProps<IDataCoordinates = any> extends IElementaryTable<IDataCoordinates>, ISelection {
-  /** List of fixed rows on the top or bottom of your table. Delegated by the virtualizer component */
+export interface IElementaryTableProps<IDataCoordinates = any> extends IElementaryTable<IDataCoordinates>, Partial<ISelection> {
   fixedRowsIndexes?: number[];
-  /** A mapping between relative and absolute rows indexes. Delegated by the Table component for example */
   indexesMapping: IIndexesMap;
-  /** The list of the opend rows and sub-rows */
   openedTrees: ITrees;
   /** To specify column groups tree structure  */
-  groupBranches: Nullable<Record<string, GroupBranch>>;
-  /** Called when a cell of the row is opened */
+  groupBranches?: Nullable<Record<string, GroupBranch>>;
   onRowOpen?: (openedTree: ITree) => void;
-  /** Called when a cell of the row is closed */
   onRowClose?: (closedTree: ITree) => void;
+  /** Total number of rows in the full grid (used for `aria-rowcount` under virtualization) */
+  totalRowCount?: number;
+  /** Total number of columns in the full grid (used for `aria-colcount`) */
+  totalColumnCount?: number;
+  /** When true, the grid declares `aria-multiselectable="true"` (rectangular cell selection) */
+  multiSelectable?: boolean;
+  /** Grid semantics (`role="grid"`, focusable cells): set when the keyboard navigation is on */
+  keyboardNavigation?: boolean;
+  /** Accessible name of the table */
+  ariaLabel?: string;
+  /** Id of the element that labels the table */
+  ariaLabelledBy?: string;
 }
 
-class ElementaryTable extends React.Component<IElementaryTableProps> {
-  static defaultProps = {
-    elevatedColumnIndexes: { elevations: {}, absoluteEndPositions: {} },
-    elevatedRowIndexes: { elevations: {}, absoluteEndPositions: {} },
-    openedTrees: {},
-    selectedCells: {},
-    rowsProps: {},
-    groupBranches: null,
-  };
+const EMPTY_ELEVATED: IElevateds = { elevations: {}, absoluteEndPositions: {} };
+const EMPTY_TREES: ITrees = {};
+const EMPTY_ROWS_PROPS: Record<number, IRowOptions> = {};
+const EMPTY_COLUMN_PROPS: IColumnOptions = {};
+const EMPTY_SELECTED_CELLS: ISelection["selectedCells"] = {};
+const EMPTY_SUB_INDEXES: IIndexesMap["relative"] = {};
 
-  /** An utility of the table that return the length of the visible sub-rows
-   * of the specified row by her absolute index. */
-  public getRowTreeLength = (absoluteIndex: number): number => {
-    const { visibleRowIndexes, indexesMapping } = this.props;
-    // @ts-ignore we have a default value for visibleRowIndexes
-    return getRowTreeLength(absoluteIndex, visibleRowIndexes || [], indexesMapping.absolute);
-  };
+/** Visible columns fixed at the end of the table, with their place: they are out of the flow. */
+function getFixedEndColumns(
+  visibleColumnIndexes: number[] = [],
+  elevatedColumnIndexes: IElevateds,
+  columns: IColumns = {},
+  globalColumnProps: IColumnOptions,
+): FixedEndColumn[] {
+  return visibleColumnIndexes
+    .filter((index) => elevatedColumnIndexes.elevations[index] === ElevationType.absolute)
+    .map((index) => ({
+      index,
+      right: elevatedColumnIndexes.absoluteEndPositions[index] || 0,
+      width: columns[index]?.size || globalColumnProps.size || 0,
+    }));
+}
 
-  /** An utility of the table that return the visible rows for the specified row by her absolute index. */
-  public getVisibleRows = (
-    rows: IRow[],
-    absoluteIndex: Nullable<number>,
-    fixedRowsAbsoluteIndexes: number[] = []
-  ): [number[], IRow[]] => {
-    const { visibleRowIndexes, indexesMapping } = this.props;
-    // @ts-ignore we have a default value for visibleRowIndexes
-    return filterRowsByIndexes(rows, visibleRowIndexes || null, indexesMapping.absolute, absoluteIndex, fixedRowsAbsoluteIndexes);
-  };
+function ElementaryTable<IDataCoordinates = any>({
+  id,
+  isSpan,
+  rows,
+  columns,
+  rowsProps = EMPTY_ROWS_PROPS,
+  globalRowProps,
+  globalColumnProps = EMPTY_COLUMN_PROPS,
+  visibleColumnIndexes,
+  visibleRowIndexes,
+  fixedRowsIndexes,
+  indexesMapping,
+  openedTrees = EMPTY_TREES,
+  elevatedColumnIndexes = EMPTY_ELEVATED,
+  elevatedRowIndexes = EMPTY_ELEVATED,
+  selectedCells = EMPTY_SELECTED_CELLS,
+  onRowOpen,
+  onRowClose,
+  onCellMouseDown,
+  onCellMouseUp,
+  onCellMouseEnter,
+  onCellContextMenu,
+  totalRowCount,
+  totalColumnCount,
+  multiSelectable,
+  groupBranches,
+  groupsProps,
+  SubRowsToggleButtonComponent,
+  keyboardNavigation = false,
+  ariaLabel,
+  ariaLabelledBy,
+}: IElementaryTableProps<IDataCoordinates>): JSX.Element {
+  // Stable callbacks: we capture `visibleRowIndexes` and `indexesMapping` via refs so the
+  // returned function identity never changes. This is critical for `<Row>` memoization —
+  // otherwise every vertical scroll invalidates these props on every row, including fixed
+  // ones whose content didn't change.
+  const visibleRowIndexesRef = React.useRef(visibleRowIndexes);
+  visibleRowIndexesRef.current = visibleRowIndexes;
+  const indexesMappingRef = React.useRef(indexesMapping);
+  indexesMappingRef.current = indexesMapping;
 
-  private renderTableParts = (): {
-    header: JSX.Element[];
-    body: JSX.Element[];
-  } => {
-    const {
-      id,
-      isSpan,
-      rows,
-      columns,
-      rowsProps,
-      globalRowProps,
-      globalColumnProps,
-      visibleColumnIndexes,
-      visibleRowIndexes,
-      fixedRowsIndexes,
-      indexesMapping,
-      openedTrees,
-      elevatedColumnIndexes,
-      elevatedRowIndexes,
-      onRowOpen,
-      onRowClose,
-      onCellMouseDown,
-      onCellMouseUp,
-      onCellMouseEnter,
-      onCellContextMenu,
-      selectedCells,
-      SubRowsToggleButtonComponent,
-    } = this.props;
-    const [relativeIndexes, rowsToRender] = this.getVisibleRows(rows, null, fixedRowsIndexes);
+  const getRowTreeLengthForIndex = React.useCallback(
+    (absoluteIndex: number): number =>
+      getRowTreeLength(absoluteIndex, visibleRowIndexesRef.current || [], indexesMappingRef.current.absolute),
+    [],
+  );
 
-    return rowsToRender.reduce<{ header: JSX.Element[]; body: JSX.Element[] }>(
-      (result, row: IRow, index) => {
-        if (!row) {
-          return result;
-        }
-        const rowIndex = relativeIndexes ? relativeIndexes[index] : index;
-        const rowProps = rowsProps ? rowsProps[rowIndex] : {};
-        const { subItems, index: rowAbsoluteIndex } = indexesMapping.relative[rowIndex];
-        const isVisible = !visibleRowIndexes || visibleRowIndexes.includes(rowAbsoluteIndex);
-        // @ts-ignore we have a default value for openedTrees
-        const rowOpenedTree = openedTrees[rowIndex];
+  const getVisibleRows = React.useCallback(
+    (subRows: IRow[], absoluteIndex: Nullable<number>, fixedRowsAbsoluteIndexes: number[] = []): [number[] | null, IRow[]] =>
+      filterRowsByIndexes(
+        subRows,
+        visibleRowIndexesRef.current || null,
+        indexesMappingRef.current.absolute,
+        absoluteIndex,
+        fixedRowsAbsoluteIndexes,
+      ),
+    [],
+  );
 
-        // @ts-ignore we have a default value for openedTrees
-        const elevation = elevatedRowIndexes?.elevations[rowAbsoluteIndex];
-        let rowSelectedCells = (subItems || selectedCells[rowAbsoluteIndex]) && selectedCells;
-        if (rowSelectedCells) {
-          const nextRowMap = indexesMapping.relative && indexesMapping.relative[rowIndex + 1];
-          const nextRowAbsoluteIndex = nextRowMap && nextRowMap.index;
-          rowSelectedCells = nextRowAbsoluteIndex
-            ? filterIndexes(rowSelectedCells, rowAbsoluteIndex, nextRowAbsoluteIndex)
-            : rowSelectedCells;
-        }
-        const absolutePosition = elevatedRowIndexes?.absoluteEndPositions[rowAbsoluteIndex];
-        const rowStyle = absolutePosition != null ? { bottom: absolutePosition } : undefined;
-        const renderedRow = (
-          <Row
-            key={`row-${id}-${row.id}`}
-            {...globalRowProps}
-            {...row}
-            {...rowProps}
-            className={classnames(row.className, {
-              [`elevated-${elevation}`]: elevation,
-            })}
-            subRowsCellIndex={getSubRowsCellIndex(row)}
-            style={rowStyle}
-            absoluteIndex={rowAbsoluteIndex}
-            index={rowIndex}
-            isVisible={isVisible}
-            isSpan={isSpan}
-            columns={columns}
-            elevatedColumnIndexes={elevatedColumnIndexes}
-            elevatedRowIndexes={elevatedRowIndexes}
-            globalColumnProps={globalColumnProps}
-            visibleColumnIndexes={visibleColumnIndexes}
-            visibleRowIndexes={visibleRowIndexes}
-            openedTree={rowOpenedTree}
-            relativeSubIndexesMapping={subItems}
-            onOpen={onRowOpen}
-            onClose={onRowClose}
-            onCellMouseDown={onCellMouseDown}
-            onCellMouseEnter={onCellMouseEnter}
-            onCellMouseUp={onCellMouseUp}
-            onCellContextMenu={onCellContextMenu}
-            selectedCells={rowSelectedCells}
-            // Table utils
-            getVisibleRows={this.getVisibleRows}
-            getRowTreeLength={this.getRowTreeLength}
-            SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
-          />
-        );
+  // Cache `style` objects by `absolutePosition` value so two consecutive renders with the
+  // same elevation position reuse the same `{ bottom: N }` reference. Without this, the
+  // memo on `<Row>` breaks for elevated-end rows (typically the bottom-fixed ones).
+  const rowStyleCacheRef = React.useRef<Map<number, React.CSSProperties>>(new Map());
 
-        if (row.isHeader) {
-          result.header.push(renderedRow);
+  // `getVisibleRows` is intentionally stable (reads via refs) so we don't put it in deps;
+  // we explicitly track the inputs that should trigger a recompute.
+  const [relativeIndexes, rowsToRender] = React.useMemo(
+    () => getVisibleRows(rows, null, fixedRowsIndexes),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, fixedRowsIndexes, visibleRowIndexes, indexesMapping],
+  );
+
+  const { header, body } = React.useMemo(() => {
+    const result = { header: [] as JSX.Element[], body: [] as JSX.Element[] };
+
+    rowsToRender.forEach((row, index) => {
+      if (!row) return;
+      const rowIndex = relativeIndexes ? relativeIndexes[index] : index;
+      const rowProps = rowsProps[rowIndex];
+      const relativeMapping = indexesMapping.relative[rowIndex];
+      if (!relativeMapping) return;
+      const { subItems, index: rowAbsoluteIndex } = relativeMapping;
+      const isVisible = !visibleRowIndexes || visibleRowIndexes.includes(rowAbsoluteIndex);
+      const rowOpenedTree = openedTrees[rowIndex];
+      const elevation = elevatedRowIndexes.elevations[rowAbsoluteIndex];
+
+      let rowSelectedCells = subItems || selectedCells[rowAbsoluteIndex] ? selectedCells : undefined;
+      if (rowSelectedCells) {
+        const nextRowMap = indexesMapping.relative[rowIndex + 1];
+        const nextRowAbsoluteIndex = nextRowMap?.index;
+        rowSelectedCells = nextRowAbsoluteIndex
+          ? filterIndexes(rowSelectedCells, rowAbsoluteIndex, nextRowAbsoluteIndex)
+          : rowSelectedCells;
+      }
+
+      const absolutePosition = elevatedRowIndexes.absoluteEndPositions[rowAbsoluteIndex];
+      let rowStyle: React.CSSProperties | undefined;
+      if (absolutePosition != null) {
+        const cached = rowStyleCacheRef.current.get(absolutePosition);
+        if (cached) {
+          rowStyle = cached;
         } else {
-          result.body.push(renderedRow);
+          rowStyle = { bottom: absolutePosition };
+          rowStyleCacheRef.current.set(absolutePosition, rowStyle);
         }
-        return result;
-      },
-      { header: [], body: [] }
+      }
+
+      const renderedRow = (
+        <Row
+          key={`row-${id}-${row.id}`}
+          {...globalRowProps}
+          {...row}
+          {...rowProps}
+          className={classnames(row.className, { [`elevated-${elevation}`]: !!elevation })}
+          subRowsCellIndex={getSubRowsCellIndex(row)}
+          style={rowStyle}
+          absoluteIndex={rowAbsoluteIndex}
+          index={rowIndex}
+          level={0}
+          isVisible={isVisible}
+          isSpan={isSpan}
+          columns={columns}
+          elevatedColumnIndexes={elevatedColumnIndexes}
+          elevatedRowIndexes={elevatedRowIndexes}
+          globalColumnProps={globalColumnProps}
+          visibleColumnIndexes={visibleColumnIndexes}
+          visibleRowIndexes={visibleRowIndexes}
+          openedTree={rowOpenedTree}
+          relativeSubIndexesMapping={subItems ?? EMPTY_SUB_INDEXES}
+          onOpen={onRowOpen}
+          onClose={onRowClose}
+          onCellMouseDown={onCellMouseDown}
+          onCellMouseEnter={onCellMouseEnter}
+          onCellMouseUp={onCellMouseUp}
+          onCellContextMenu={onCellContextMenu}
+          selectedCells={rowSelectedCells ?? EMPTY_SELECTED_CELLS}
+          getVisibleRows={getVisibleRows}
+          getRowTreeLength={getRowTreeLengthForIndex}
+          SubRowsToggleButtonComponent={SubRowsToggleButtonComponent}
+          keyboardNavigation={keyboardNavigation}
+        />
+      );
+
+      if (row.isHeader) result.header.push(renderedRow);
+      else result.body.push(renderedRow);
+    });
+
+    return result;
+  }, [
+    rowsToRender,
+    relativeIndexes,
+    rowsProps,
+    indexesMapping,
+    visibleRowIndexes,
+    visibleColumnIndexes,
+    openedTrees,
+    elevatedRowIndexes,
+    elevatedColumnIndexes,
+    selectedCells,
+    id,
+    isSpan,
+    columns,
+    globalRowProps,
+    globalColumnProps,
+    onRowOpen,
+    onRowClose,
+    onCellMouseDown,
+    onCellMouseEnter,
+    onCellMouseUp,
+    onCellContextMenu,
+    getVisibleRows,
+    getRowTreeLengthForIndex,
+    SubRowsToggleButtonComponent,
+    keyboardNavigation,
+  ]);
+
+  const groups = React.useMemo(() => {
+    if (!groupBranches) return [];
+    const fixedEndColumns = getFixedEndColumns(visibleColumnIndexes, elevatedColumnIndexes, columns, globalColumnProps);
+    const lastFixedStartColumn = visibleColumnIndexes?.find(
+      (index) => elevatedColumnIndexes.elevations[index] === ElevationType.start,
     );
-  };
+    return getVisibleGroups(groupBranches, columns, visibleColumnIndexes, fixedEndColumns, lastFixedStartColumn);
+  }, [groupBranches, columns, visibleColumnIndexes, elevatedColumnIndexes, globalColumnProps]);
+  const hasHeader = header.length > 0 || groups.length > 0;
 
-  public render() {
-    const { columns, visibleColumnIndexes, groupBranches, groupsProps } = this.props;
-
-    const { header, body } = this.renderTableParts();
-    const groups = groupBranches ? getMergedBranches(getColumnBranches(groupBranches, columns, visibleColumnIndexes)) : [];
-    const hasHeader = header.length > 0 || groups.length > 0;
-    const hasBody = body.length > 0;
-
-    return (
-      <table className="table-root">
-        {hasHeader ? (
-          <thead>
-            {groups.length > 0 ? <GroupRows {...groupsProps} groups={groups} /> : null}
-            {header.length > 0 ? header : null}
-          </thead>
-        ) : null}
-        {hasBody ? <tbody>{body}</tbody> : null}
-      </table>
-    );
-  }
+  return (
+    <table
+      className="table-root"
+      // A grid promises keyboard navigation: without it, this is a plain table.
+      role={keyboardNavigation ? "grid" : undefined}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+      aria-rowcount={totalRowCount}
+      aria-colcount={totalColumnCount}
+      aria-multiselectable={keyboardNavigation && multiSelectable ? true : undefined}
+    >
+      {hasHeader ? (
+        <thead>
+          {groups.length > 0 ? <GroupRows {...groupsProps} groups={groups} /> : null}
+          {header.length > 0 ? header : null}
+        </thead>
+      ) : null}
+      {body.length > 0 ? <tbody>{body}</tbody> : null}
+    </table>
+  );
 }
 
 export default ElementaryTable;

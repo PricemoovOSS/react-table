@@ -29,7 +29,7 @@ export const DumbColumnIdScrollController: React.FunctionComponent<IDumbIColumnI
 }) => {
   const selectedColumnIndex = React.useMemo(
     () => columns.findIndex((column) => column.id === columnsCursorId),
-    [columnsCursorId]
+    [columnsCursorId],
   );
 
   const gotToColumn = (columnIndex: number) => {

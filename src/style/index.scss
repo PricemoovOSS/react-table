@@ -1,7 +1,6 @@
-@import "variable/index";
-@import "responsive-container";
-@import "styled-table/index";
-@import "scroller";
-@import "table/index";
-@import "table-selection/index";
-@import "table-interactions-manager/index";
+@use "responsive-container";
+@use "styled-table/index" as styled-table;
+@use "scroller";
+@use "table/index" as table;
+@use "table-selection/index" as table-selection;
+@use "table-interactions-manager/index" as tim;

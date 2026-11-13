@@ -7,13 +7,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # setup-node writes an .npmrc that reads NODE_AUTH_TOKEN and yarn 1 refuses it while the variable is
+      # unset: a placeholder until the publish step, the only one that gets the token
+      NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org/
       - run: yarn install --frozen-lockfile
-      - run: npm publish --access public
+      - run: yarn test --ci
+      - run: yarn build
+      # 5.0.0-beta.1 is published as such under the dist-tag `beta`, 5.0.0 under `latest`
+      - name: Take the version from the release tag
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG##*@}"
+          version="${version#v}"
+          if [ "${version%%-*}" != "$(node -p "require('./package.json').version")" ]; then
+            echo "::error::$TAG does not match the version of package.json"
+            exit 1
+          fi
+          npm version --no-git-tag-version --allow-same-version "$version"
+          case "$version" in
+            *-*) prerelease="${version#*-}"; echo "DIST_TAG=${prerelease%%.*}" >> "$GITHUB_ENV" ;;
+            *) echo "DIST_TAG=latest" >> "$GITHUB_ENV" ;;
+          esac
+      - run: npm publish --access public --tag "$DIST_TAG"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
