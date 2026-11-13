@@ -17,5 +17,6 @@ jobs:
       - run: yarn tsc --noEmit -p tsconfig.eslint.json
       - run: yarn test --ci
       - run: yarn build
+      - run: yarn test:size
       - run: npx playwright install --with-deps chromium
       - run: yarn test:browser
